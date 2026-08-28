@@ -140,6 +140,8 @@ The steward stops the merge when any identity, ancestry, scope, approval, test, 
 
 `scripts/check_git_governance.py` and `.github/workflows/git-governance.yml` reject prohibited targets, archive integration, reused feature branches, stale ancestry at check time, undeclared merge commits, unlisted changed files, missing live-ledger references, forbidden local artifacts, and unclassified high-risk scope. These checks supplement rather than replace protected branches, the pre-merge fresh-target check, manual lease-grant verification, and the Merge Steward.
 
+The workflow cancels an in-progress governance run when a newer event for the same PR arrives (`concurrency: cancel-in-progress`), and reads the pull request's live body and head SHA together in one API call at execution time rather than trusting the triggering event's snapshot. A run whose event head no longer matches the live head skips enforcement rather than failing — it has been superseded by a newer run, which is now responsible. Without this, a rapid edit-then-push (or two pushes close together) can let an older run's stale event body fail a PR that is already correct at its current head, or evaluate a body/head pairing that never actually coexisted.
+
 Until branch protection and a workable reviewer roster are available, the compensating controls are: sole merge authority, a visible queue, a current-head Merge Steward decision, documented independent evidence for high-risk work, complete CI evidence, and a steward closeout record. Bypassing any of them is an authority failure under `AGENT_EVALUATION_COVENANT.md`.
 
 ## Audit and review

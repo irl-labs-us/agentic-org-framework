@@ -8,6 +8,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: git-governance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   covenant:
     name: Git operations covenant
@@ -25,30 +29,39 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          governance_policy_dir="$(mktemp -d "$RUNNER_TEMP/git-governance.XXXXXX")"
+          chmod 700 "$governance_policy_dir"
+          echo "GOVERNANCE_POLICY_DIR=$governance_policy_dir" >> "$GITHUB_ENV"
           git fetch --no-tags origin "$BASE_SHA"
           if git cat-file -e "$BASE_SHA:scripts/check_git_governance.py"; then
-            git show "$BASE_SHA:scripts/check_git_governance.py" > "$RUNNER_TEMP/check_git_governance.py"
+            git show "$BASE_SHA:scripts/check_git_governance.py" > "$governance_policy_dir/check_git_governance.py"
           else
-            cp scripts/check_git_governance.py "$RUNNER_TEMP/check_git_governance.py"
+            cp scripts/check_git_governance.py "$governance_policy_dir/check_git_governance.py"
             echo "Bootstrap run: base branch has no governance checker; Merge Steward must inspect this policy change manually."
           fi
 
-      - name: Collect branch history
+      - name: Collect live pull-request metadata and branch history
         id: metadata
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          live_metadata="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json body,headRefOid)"
+          live_head_sha="$(jq -r '.headRefOid' <<< "$live_metadata")"
+          if [[ "$live_head_sha" != "$EVENT_HEAD_SHA" ]]; then
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping superseded event head $EVENT_HEAD_SHA; current PR head is $live_head_sha."
+            exit 0
+          fi
+          echo "superseded=false" >> "$GITHUB_OUTPUT"
+          jq -r '.body // ""' <<< "$live_metadata" > "$GOVERNANCE_POLICY_DIR/pr-body.md"
           prior_pr_count="$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$HEAD_REF" --limit 100 --json number --jq "[.[] | select(.number != $PR_NUMBER)] | length")"
           echo "prior_pr_count=$prior_pr_count" >> "$GITHUB_OUTPUT"
 
-      - name: Materialize pull-request body
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: python -c 'import os, pathlib; pathlib.Path("pr-body.md").write_text(os.environ.get("PR_BODY", ""), encoding="utf-8")'
-
       - name: Enforce covenant
+        if: steps.metadata.outputs.superseded != 'true'
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -56,10 +69,10 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PRIOR_PR_COUNT: ${{ steps.metadata.outputs.prior_pr_count }}
         run: >-
-          python "$RUNNER_TEMP/check_git_governance.py"
+          python "$GOVERNANCE_POLICY_DIR/check_git_governance.py"
           --base-ref "$BASE_REF"
           --head-ref "$HEAD_REF"
           --base-sha "$BASE_SHA"
           --head-sha "$HEAD_SHA"
-          --body-file pr-body.md
+          --body-file "$GOVERNANCE_POLICY_DIR/pr-body.md"
           --prior-pr-count "$PRIOR_PR_COUNT"
