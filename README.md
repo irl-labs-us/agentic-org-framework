@@ -4,6 +4,32 @@ A product-agnostic operating system for a human principal (a "CEO") directing a 
 
 This repo is a **GitHub template**. Use it to scaffold the coordination layer of a new project; don't fork it as a dependency.
 
+## How the parts fit together
+
+```mermaid
+flowchart TB
+    STRATEGY["Part I — Strategy<br/>CEO sets vision, diagnosis, guiding policy,<br/>human-in-command boundary"]
+    BUDGET["Part II — Budget & Portfolio<br/>Mission packets, circuit breakers,<br/>two-attempt rule, weekly review"]
+    ORG["Part III — Organizational Structure<br/>Build org, customer-facing org,<br/>mission overlays, decision rights"]
+    GIT["Part III.8 — Git & Integration Discipline<br/>Merge Steward, worktree leases,<br/>single-use branches, PR governance CI"]
+    EVAL["Part IV — Agent Evaluation<br/>Tier 1 (alignment, safety, quality)<br/>before Tier 2 (efficiency)"]
+    DEBUG["Part V — Debugging & Escalation<br/>Severity, single-writer rule,<br/>two-attempt stop"]
+    GUARDRAILS["Part VI — Postmortem-Derived Guardrails<br/>Read before funding anything<br/>'foundational' or 'enabling'"]
+
+    STRATEGY -->|"funds work within"| BUDGET
+    BUDGET -->|"staffs missions inside"| ORG
+    ORG -->|"any mission touching code follows"| GIT
+    ORG -->|"every agent is judged by"| EVAL
+    ORG -->|"any blocker follows"| DEBUG
+    GIT -->|"is one instance of the single-writer rule in"| DEBUG
+    EVAL -.->|"protects against gaming"| GUARDRAILS
+    DEBUG -.->|"an unresolved case can become"| GUARDRAILS
+    GUARDRAILS -.->|"corrects"| STRATEGY
+    GUARDRAILS -.->|"corrects"| BUDGET
+```
+
+Solid arrows are the normal top-down flow of authority and work; dashed arrows are the feedback loop — Part VI exists because Parts I–V, followed correctly but without a "stop and check" mechanism, still produced an overrun in practice. Part VII in `FRAMEWORK.md` (Adoption Guide) walks the same path as a day-0 checklist.
+
 ## What's in here
 
 | Path | What it's for |
