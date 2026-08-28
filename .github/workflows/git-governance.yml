@@ -1,0 +1,65 @@
+name: Git governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  covenant:
+    name: Git operations covenant
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out exact pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prepare trusted base policy
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags origin "$BASE_SHA"
+          if git cat-file -e "$BASE_SHA:scripts/check_git_governance.py"; then
+            git show "$BASE_SHA:scripts/check_git_governance.py" > "$RUNNER_TEMP/check_git_governance.py"
+          else
+            cp scripts/check_git_governance.py "$RUNNER_TEMP/check_git_governance.py"
+            echo "Bootstrap run: base branch has no governance checker; Merge Steward must inspect this policy change manually."
+          fi
+
+      - name: Collect branch history
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          prior_pr_count="$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$HEAD_REF" --limit 100 --json number --jq "[.[] | select(.number != $PR_NUMBER)] | length")"
+          echo "prior_pr_count=$prior_pr_count" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize pull-request body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python -c 'import os, pathlib; pathlib.Path("pr-body.md").write_text(os.environ.get("PR_BODY", ""), encoding="utf-8")'
+
+      - name: Enforce covenant
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PRIOR_PR_COUNT: ${{ steps.metadata.outputs.prior_pr_count }}
+        run: >-
+          python "$RUNNER_TEMP/check_git_governance.py"
+          --base-ref "$BASE_REF"
+          --head-ref "$HEAD_REF"
+          --base-sha "$BASE_SHA"
+          --head-sha "$HEAD_SHA"
+          --body-file pr-body.md
+          --prior-pr-count "$PRIOR_PR_COUNT"
