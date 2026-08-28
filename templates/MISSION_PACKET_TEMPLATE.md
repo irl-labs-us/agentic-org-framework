@@ -97,10 +97,11 @@ Copy this template for every new build or user-facing agent assignment. Register
 ### Pull-request body metadata contract
 
 - **Required exact headings retained:** `## Outcome`; `## Coordination and scope`; `## Git-work lease`; `## Changed-file manifest`; `## Evidence`
-- **Lease metadata inside `## Git-work lease`:** `GIT-YYYY-NNN` ID plus the full live-ledger grant URL
+- **Lease metadata inside `## Git-work lease`:** `GIT-YYYY-NNN` ID plus the exact numeric `LEASE GRANTED` comment URL (the issue root URL is not sufficient)
 - **Exact manifest format:** Every current base-to-head path exactly once as ``- `path/to/file` ``
 - **CLI publication method:** Complete a temporary copy of `.github/pull_request_template.md` and use `gh pr create --body-file <completed-file>`; do not substitute `--body` or `--fill`
 - **Update rule:** A changed head or file set requires refreshed head SHA, manifest, risk class, tests, and evidence before another gate
+- **Persistent release exception:** For `staging` → `main`/`master`, record a separate release lease and use `scripts/create_release_pr.py`; do not apply the feature-only ancestry/readiness command or open the release PR manually
 
 ## Inputs
 
@@ -119,7 +120,8 @@ Copy this template for every new build or user-facing agent assignment. Register
 - [ ] Downstream implications and the next owner are named.
 - [ ] Before branch creation, remote `staging` was freshly fetched and pruned; the lease recorded its exact full SHA; and `scripts/create_feature_worktree.py` created the single-use branch directly from that fetched remote-tracking ref.
 - [ ] Before PR publication, the fetched target tip, recorded base SHA, merge-base, local/remote branch identity, dependency declaration, clean worktree, tests, and reviewed commit SHA pass the branch integration gate.
-- [ ] The PR body retains every required exact heading; the `## Git-work lease` section contains the formatted lease ID and live-ledger grant URL; and the manifest exactly matches the current diff.
+- [ ] The PR body retains every required exact heading; the `## Git-work lease` section contains the formatted lease ID and exact numeric live-ledger `LEASE GRANTED` comment URL; and the manifest exactly matches the current diff.
+- [ ] If this is a persistent staging release, `scripts/create_release_pr.py` recorded fresh base/head/merge-base identity and created or repaired the body atomically; current-head CI, staging verification, mergeability, live-ledger matching, and Merge Steward freshness evidence are complete.
 - [ ] The active Git-work lease, single-use branch, exact changed-file manifest, risk classification, current-head evidence, and Merge Steward queue state satisfy `GIT_OPERATIONS_COVENANT.md`.
 - [ ] The end condition is met and the accountable destination owner accepts the handoff.
 - [ ] Temporary writer scopes, task-local contacts, and mission status are cleared or archived.

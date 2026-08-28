@@ -42,8 +42,9 @@ Solid arrows are the normal top-down flow of authority and work; dashed arrows a
 | `.github/pull_request_template.md` | PR body with the required sections the governance check parses (`## Outcome`, `## Git-work lease`, `## Changed-file manifest`, etc.). |
 | `.github/workflows/git-governance.yml` | CI check that fails a PR closed when governance metadata is missing, stale, or inconsistent. |
 | `scripts/create_feature_worktree.py` | Creates a single-use feature branch/worktree directly from a freshly-fetched exact base SHA; fails if that SHA is no longer the remote tip. |
-| `scripts/check_pr_readiness.py` | Pre-flight check to run before opening/updating a PR. |
-| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. |
+| `scripts/check_pr_readiness.py` | Pre-flight check to run before opening/updating a **feature** PR (strict ancestry model — do not use for releases). |
+| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. |
+| `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. |
 
 ## Using this as a template for a new project
 
@@ -53,6 +54,8 @@ Solid arrows are the normal top-down flow of authority and work; dashed arrows a
 4. Set your default integration branch names if they differ from `staging`/`main` — update the `--target-ref` defaults in `scripts/check_pr_readiness.py` and `scripts/create_feature_worktree.py`.
 5. Copy `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` into your project's `.github/` directory.
 6. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
+
+**Note on the release path:** `main` normally diverges from a persistent `staging` branch after every GitHub release merge (the release merge commit only exists on `main`), so a naive "base must be an ancestor of head" ancestry check will fail on the *second* release PR, not the first — this is the failure mode `scripts/check_git_governance.py` and `scripts/create_release_pr.py` are built to avoid. If you're adopting this checker on a repo where `main`/`staging` have already diverged by more than one prior release, you'll need the one-time bootstrap noted in `templates/GIT_OPERATIONS_COVENANT.md`'s release contract before the first governed release PR can pass.
 
 ## Why this exists
 

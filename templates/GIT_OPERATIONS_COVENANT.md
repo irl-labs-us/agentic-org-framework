@@ -35,6 +35,7 @@ Git is an integration boundary, not a transport shortcut. A task pass, QA pass, 
 - A merged or closed branch is retired. Follow-up work starts on a new branch created directly from the freshly fetched remote `staging` tip.
 - A branch name may not be reused for another pull request or divergent history.
 - The persistent `staging` branch is exempt from the single-use rule only when it is the head of an authorized release pull request into `main` or `master`; all other identity, evidence, CI, and steward gates still apply.
+- A normal GitHub release merge creates a commit on `main` that is not on persistent `staging`. Release governance therefore uses the common merge base to identify changes introduced by `staging`; it does not require `main` to be an ancestor of `staging`. This exception applies only to the exact `staging` → `main` or `master` path. Feature PRs retain strict current-target ancestry.
 - `archive-*` and frozen-evidence refs never target `staging` or `main`. Preserve them as tags or retained remote refs without integrating their contents.
 - Do not merge `staging`, another feature branch, or a shared repair branch into a feature branch to resolve drift. Rebase or recreate from current `staging`; do not create a stack.
 - A feature range containing an undeclared merge commit fails the integration gate.
@@ -92,7 +93,7 @@ The Git governance check parses the PR body by exact Markdown section name. Auth
 - `## Changed-file manifest`
 - `## Evidence`
 
-The `## Git-work lease` section must itself contain both a lease ID matching `GIT-YYYY-NNN` and the full live-ledger URL `https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>` or a grant-comment URL beneath it. A lease ID written only under `## Branch integration`, in a PR title, or in a comment does not satisfy this contract.
+The `## Git-work lease` section must itself contain both a lease ID matching `GIT-YYYY-NNN` and the exact numeric `LEASE GRANTED` comment URL matching `https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>#issuecomment-<digits>`. The issue root URL is not sufficient. A lease ID written only under `## Branch integration`, in a PR title, or in a comment does not satisfy this contract.
 
 The `## Changed-file manifest` section must equal the current base-to-head diff exactly. List each repository-relative path once, with no prose or status prefix, using this literal form:
 
@@ -100,9 +101,23 @@ The `## Changed-file manifest` section must equal the current base-to-head diff 
 - `path/to/file`
 ```
 
-When the head changes, the author updates the current reviewed SHA, manifest, risk classification, tests, and evidence before requesting another gate. Authors using the GitHub CLI must fill a temporary copy of `.github/pull_request_template.md` and pass it with `gh pr create --body-file <completed-file>`; abbreviated `--body`, `--fill`, or free-form bodies are prohibited because they bypass required metadata. Before publication, compare the manifest with `git diff --name-only <recorded-base>..HEAD` and run the local readiness/governance checks. Missing or renamed headings, misplaced lease metadata, an absent live-ledger link, or any manifest mismatch is a preventable authoring failure and CI must fail closed.
+When the head changes, the author updates the current reviewed SHA, manifest, risk classification, tests, and evidence before requesting another gate. Authors using the GitHub CLI must fill a temporary copy of `.github/pull_request_template.md` and pass it with `gh pr create --body-file <completed-file>`; abbreviated `--body`, `--fill`, or free-form bodies are prohibited because they bypass required metadata. Before publication, compare the manifest with `git diff --name-only <recorded-base>..HEAD` and run the local readiness/governance checks. Missing or renamed headings, misplaced lease metadata, an absent numeric live-ledger grant-comment link, or any manifest mismatch is a preventable authoring failure and CI must fail closed.
 
-CI validates that the pull request names a correctly formatted lease ID and links the live ledger. Before any `ready_for_merge` transition, the Merge Steward manually opens that link and verifies a separate `LEASE GRANTED` comment whose branch, target/base SHA, expiry, writer scope, and steward match the pull request. This manual ledger match remains a compensating control until a transactional lease service is justified.
+CI validates that the pull request names a correctly formatted lease ID and links its exact numeric `LEASE GRANTED` comment in the live ledger. Before any `ready_for_merge` transition, the Merge Steward manually opens that comment and verifies that its branch, target/base SHA, expiry, writer scope, and steward match the pull request. This manual ledger match remains a compensating control until a transactional lease service is justified.
+
+### Release pull-request contract
+
+Every `staging` → `main` or `master` release is high risk and requires its own live-ledger release lease. The release owner must use `scripts/create_release_pr.py` to create or repair the PR. The helper:
+
+1. fetches and prunes the persistent target and `staging` refs;
+2. verifies the exact release path and a common merge base;
+3. computes the manifest as the changes introduced by `staging` since that merge base;
+4. renders every required metadata section, exact base/head SHA, merge base, lease, and manifest before publication; and
+5. creates the PR — or repairs the single existing open release PR — with `--body-file` in one GitHub operation.
+
+The helper never merges. Empty release bodies, compare-page release PRs, `--fill`, create-then-edit publication, force pushes, and history rewrites are prohibited. Unlike feature PRs, a release PR does not run `scripts/check_pr_readiness.py`, whose strict target-ancestry model is feature-specific. Release readiness instead requires the helper's fresh-ref validation, the CI governance release path, GitHub mergeability, current-head full CI, staging deployment/verification evidence, specialist evidence for included high-risk work, the live-ledger match, and the Merge Steward's final fresh-main decision.
+
+**Adopting this checker on an existing repository:** if `main` and `staging` have already diverged by more than one release merge commit before this checker is installed, the Merge Steward may need a one-time, explicitly recorded bootstrap (e.g. one GitHub branch-update operation to bring `staging` current with `main`) to get the very first release PR through the new gate. Record the exact pre-operation SHAs and the reason in the live ledger before doing it; this is a named, singular exception, never a standing practice, and it disappears once the divergence-safe checker has processed one clean release.
 
 ## Merge-steward checklist
 
@@ -117,7 +132,7 @@ For every merge, the steward records:
 - staging deployment or release evidence; and
 - branch/worktree closeout owner and due date.
 
-Immediately before merge, the steward fetches the target remote again, verifies that its current tip exactly equals the PR's recorded base SHA, reruns `scripts/check_pr_readiness.py` against that fetched ref, and records the observed target SHA and timestamp in the live ledger. A prior green workflow is not freshness evidence after the target advances. If the target changed, the PR returns to the writer for rebase or recreation and all head-bound evidence becomes stale.
+Immediately before a feature merge, the steward fetches the target remote again, verifies that its current tip exactly equals the PR's recorded base SHA, reruns `scripts/check_pr_readiness.py` against that fetched ref, and records the observed target SHA and timestamp in the live ledger. Immediately before a release merge, the steward reruns `scripts/create_release_pr.py --dry-run` with the recorded release lease, verifies that current `main` and `staging` exactly match the PR base/head, confirms GitHub still reports the PR mergeable, and records both SHAs and the timestamp. A prior green workflow is not freshness evidence after either ref advances. If the applicable target or release head changed, all head-bound evidence becomes stale and the PR body/checks must be refreshed before merge.
 
 The steward stops the merge when any identity, ancestry, scope, approval, test, risk, or custody evidence is missing or contradictory. The correct disposition is `needs_coordination`, not an improvised history repair.
 

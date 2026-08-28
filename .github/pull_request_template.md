@@ -1,8 +1,11 @@
 <!--
 REQUIRED FOR GIT GOVERNANCE:
+- This is the feature-PR template. For persistent staging -> main releases, use
+  scripts/create_release_pr.py; do not open an empty release PR manually.
 - Keep every ## heading in this template exactly as written.
 - Do not replace this template with an abbreviated --body or --fill body.
-- Complete the Git-work lease ID and live-ledger grant link inside the
+- Complete the Git-work lease ID and exact numeric live-ledger `LEASE GRANTED`
+  comment link (`#issuecomment-<digits>`) inside the
   "## Git-work lease" section, not only in "## Branch integration".
 - List the exact current diff, one backticked path per line, under
   "## Changed-file manifest".
@@ -49,7 +52,7 @@ missing, renamed, misplaced, or inconsistent with the current PR head.
 ## Git-work lease
 
 - Git-work lease ID: GIT-YYYY-NNN
-- Live-ledger grant link:
+- Live-ledger grant link: https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>#issuecomment-<digits>
 - Registry snapshot row / link, if already refreshed:
 - Lease expiry:
 - Closeout owner and disposition:

@@ -42,6 +42,9 @@ FORBIDDEN_EXACT = {
 # TODO: point this at your project's live Git-work lease ledger (a pinned
 # tracking issue that records lease grants — see docs/GIT_OPERATIONS_COVENANT.md).
 LIVE_LEDGER_URL = "https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>"
+GRANT_URL_PATTERN = re.compile(
+    rf"(?<!\S){re.escape(LIVE_LEDGER_URL)}#issuecomment-\d+(?=\s|$)"
+)
 
 
 class GovernanceError(RuntimeError):
@@ -100,13 +103,27 @@ def declared_manifest(body: str) -> set[str]:
     return paths
 
 
-def changed_files(repo: Path, base_sha: str, head_sha: str) -> list[str]:
-    output = git(repo, "diff", "--name-only", f"{base_sha}..{head_sha}")
+def diff_range(base_sha: str, head_sha: str, *, release_path: bool) -> str:
+    """Use merge-base scope for releases and exact ancestry scope for features."""
+    operator = "..." if release_path else ".."
+    return f"{base_sha}{operator}{head_sha}"
+
+
+def changed_files(
+    repo: Path, base_sha: str, head_sha: str, *, release_path: bool = False
+) -> list[str]:
+    output = git(
+        repo, "diff", "--name-only", diff_range(base_sha, head_sha, release_path=release_path)
+    )
     return [line for line in output.splitlines() if line]
 
 
-def changed_lines(repo: Path, base_sha: str, head_sha: str) -> int:
-    output = git(repo, "diff", "--numstat", f"{base_sha}..{head_sha}")
+def changed_lines(
+    repo: Path, base_sha: str, head_sha: str, *, release_path: bool = False
+) -> int:
+    output = git(
+        repo, "diff", "--numstat", diff_range(base_sha, head_sha, release_path=release_path)
+    )
     total = 0
     for line in output.splitlines():
         parts = line.split("\t", 2)
@@ -150,8 +167,11 @@ def declared_lease(body: str) -> str:
     lease = re.search(r"\bGIT-\d{4}-\d{3}\b", section)
     if not lease:
         raise GovernanceError("Git-work lease section must name a lease ID like GIT-2026-001")
-    if LIVE_LEDGER_URL not in section:
-        raise GovernanceError(f"Git-work lease section must link the live ledger: {LIVE_LEDGER_URL}")
+    if not GRANT_URL_PATTERN.search(section):
+        raise GovernanceError(
+            "Git-work lease section must link a numeric LEASE GRANTED comment in the live ledger: "
+            f"{LIVE_LEDGER_URL}#issuecomment-<digits>"
+        )
     return lease.group(0)
 
 
@@ -178,14 +198,22 @@ def validate(args: argparse.Namespace) -> tuple[list[str], int, bool]:
 
     git(repo, "rev-parse", "--verify", f"{args.base_sha}^{{commit}}")
     git(repo, "rev-parse", "--verify", f"{args.head_sha}^{{commit}}")
-    ancestor = subprocess.run(
-        ["git", "-C", str(repo), "merge-base", "--is-ancestor", args.base_sha, args.head_sha],
-        check=False,
-    )
-    if ancestor.returncode != 0:
-        raise GovernanceError(
-            "current base SHA is not an ancestor of the PR head; rebase or recreate from current target"
+    if release_path:
+        # A GitHub merge of staging into main creates a release commit that exists
+        # only on main. Main therefore normally diverges from persistent staging
+        # after the first release. Require a common ancestor, then audit only the
+        # changes staging introduces since that merge base — never require full
+        # ancestry here, or every release after the first will fail this check.
+        git(repo, "merge-base", args.base_sha, args.head_sha)
+    else:
+        ancestor = subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", args.base_sha, args.head_sha],
+            check=False,
         )
+        if ancestor.returncode != 0:
+            raise GovernanceError(
+                "current base SHA is not an ancestor of the PR head; rebase or recreate from current target"
+            )
 
     if not release_path:
         merges = git(repo, "rev-list", "--merges", f"{args.base_sha}..{args.head_sha}")
@@ -194,7 +222,7 @@ def validate(args: argparse.Namespace) -> tuple[list[str], int, bool]:
                 "feature range contains merge commits; rebase/recreate or obtain a recorded exceptional recovery"
             )
 
-    files = changed_files(repo, args.base_sha, args.head_sha)
+    files = changed_files(repo, args.base_sha, args.head_sha, release_path=release_path)
     if not files:
         raise GovernanceError("pull request has no changed files")
     forbidden = sorted(path for path in files if is_forbidden(path))
@@ -217,8 +245,13 @@ def validate(args: argparse.Namespace) -> tuple[list[str], int, bool]:
             detail.append(f"not in diff: {', '.join(extra)}")
         raise GovernanceError("changed-file manifest mismatch; " + "; ".join(detail))
 
-    lines = changed_lines(repo, args.base_sha, args.head_sha)
-    high_risk = len(files) > 20 or lines > 1000 or any(is_high_risk(path) for path in files)
+    lines = changed_lines(repo, args.base_sha, args.head_sha, release_path=release_path)
+    high_risk = (
+        release_path
+        or len(files) > 20
+        or lines > 1000
+        or any(is_high_risk(path) for path in files)
+    )
     return files, lines, high_risk
 
 
