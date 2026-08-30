@@ -15,6 +15,13 @@ concurrency:
 jobs:
   covenant:
     name: Git operations covenant
+    # This repo is the template source itself, not an instantiated project — it has
+    # no staging branch and doesn't follow the staging->main release flow this check
+    # enforces, so it can never pass here. The condition is a literal match on this
+    # repo's own full name, so it only suppresses the check here; any project created
+    # from "Use this template" gets a different github.repository value and the
+    # check runs normally there.
+    if: github.repository != 'irl-labs-us/agentic-org-framework'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
