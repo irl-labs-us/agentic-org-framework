@@ -75,4 +75,14 @@ If you'd rather not run the interview, `SETUP.md`'s sections map directly onto t
 
 Extracted and generalized from RoleWise's operating model after two documented incidents: an over-scoped "foundational" platform mission that grew to ~4,580 lines chasing a proof nobody had asked for, and unowned git worktrees/stacked branches producing silent drift once multiple agents could write code. `FRAMEWORK.md` Part VI (Postmortem-Derived Guardrails) is the literal list of corrections; read it before funding anything described as "foundational" or "enabling."
 
+## When this doesn't fit
+
+RoleWise itself later removed the full framework — the CSO/CEO org-simulation layer (`CORE_ORG.md`, `AGENT_OPERATING_CHARTER.md`, `ACTIVE_TEAM.md`, mission packets, the evaluation covenant) — after adopting it. Reasons, for anyone deciding whether to adopt this template as-is:
+
+- **It was sized for a problem RoleWise didn't have.** The framework's git discipline and mission-coordination ceremony assume multiple independent agents/operators who need role separation and a shared ledger to avoid stepping on each other. RoleWise is one human operator directing Claude Code/Codex sessions directly — there was no second decision-maker for the CEO/CSO split, or a second lease-holder for the worktree ledger, to actually coordinate with.
+- **The ceremony didn't prevent the failure mode it targeted.** Merge conflicts still happened — several parallel feature branches all touching the same files (a UI component and its tests) without merging the base branch back in regularly. `ACTIVE_TEAM.md` faithfully recorded that all this work was in flight, but nothing in the framework forced any of those branches to reconcile with the base branch before diverging further. The actual fix was a plain git habit (merge the base branch in early and often) plus a lightweight CI comment showing how many commits a PR is behind — not org roleplay.
+- **The overhead was measurable and one-sided.** Standing the framework up took 4+ PRs; removing it cleanly took 3 follow-up commits. That cost was paid without a matching case where the ceremony caught a problem the underlying git/CI mechanics wouldn't have caught on their own.
+
+None of this means the framework is wrong for its intended case — a real team with multiple people or agents needing role separation, budget/circuit-breaker discipline, and a shared coordination ledger. It means: before adopting the full org-simulation layer, check whether you actually have more than one decision-maker to coordinate. If not, the git-integration discipline (Part III.8) and postmortem guardrails (Part VI) may be worth keeping on their own, without Parts I–III's strategy/org/mission-packet ceremony on top.
+
 Update this template as you learn — the whole point is that the next project starts with the last project's scar tissue built in, not re-derives it from scratch.
