@@ -5,6 +5,7 @@
 **Status:** Draft v0.4 — derived from RoleWise's operating model (`docs/coordination/CORE_ORG.md`, `AGENT_OPERATING_CHARTER.md`, `AGENT_EVALUATION_COVENANT.md`, `MISSION_PACKET_TEMPLATE.md`, `DEBUG_PROTOCOL.md`, `STRATEGY.md`) and hardened against the failure modes documented in `docs/coordination/reviews/2026-08-25-memory-architecture-postmortem-and-beta-portfolio.md`.
 **2026-08-27 update:** added III.8 (Git and integration discipline) and three Part VI guardrails, generalized from RoleWise's `GIT_OPERATIONS_COVENANT.md`, the fresh-staging-branch and local-development-workflow missions, and a same-day consent-boundary fix (`docs/coordination/GIT_WORK_REGISTRY.md`, `docs/coordination/missions/local-development-workflow.md`).
 **2026-08-28 update:** added a III.8 guardrail on the release-path ancestry failure (RoleWise's `codex/release-governance-path` mission) and the accompanying `scripts/create_release_pr.py` helper — the governance checker's strict-ancestry rule broke every release PR after the first because a GitHub release merge leaves `main` with a commit `staging` never gets. Also added a III.8 guardrail on a governance-CI race (RoleWise's `codex/initial-pr-governance-race` mission): the workflow now cancels superseded runs and reads live PR body/head together at execution time instead of trusting the triggering event's stale snapshot.
+**2026-09-02 update:** added III.9 (Customer feedback and happy-path discipline), generalized from RoleWise's customer-feedback harness (`docs/customer-feedback/`) into `templates/customer-feedback/` and `scripts/customer_feedback_harness.py` / `scripts/build_weekly_feedback_review.py`.
 **Entry-point agnostic:** works whether you are starting from an idea, a design, or an existing codebase.
 **Scale agnostic:** the same rules apply to a prototype, a beta, or a production system — only the numbers in the budget and gates change.
 **Open questions reserved for the CEO's return are collected at the end, under "Decisions pending your review."**
@@ -257,6 +258,75 @@ Once more than one agent can write code, "which branch is safe to build on" beco
 - **A rule copied from the common case will break the one path that's structurally different — find it before it fails in production, not after.** RoleWise's first governance checker required the merge target to be a strict ancestor of the PR head for every integration, which is correct for feature branches but wrong for the one persistent-branch path: after a GitHub release merge, `main` gets a commit that never lands on `staging`, so the *next* release PR fails the same ancestry check that correctly protects every feature PR. The fix wasn't a looser rule everywhere — it was recognizing the release path as a distinct case (common-ancestor scope, not strict-ancestor scope) and keeping the strict rule for everything else. When a governance/CI rule "keeps failing" after it clearly worked at first, look for the one workflow shape it was never designed for rather than weakening the rule for everyone. A companion helper script that atomically renders the release PR's required metadata (RoleWise's `create_release_pr.py`) also closed a second, independent failure mode: authors hand-editing an empty release PR body one section at a time, which the machine-checkable contract in the previous bullet correctly rejected every time.
 - **A CI check that reads the triggering event's payload instead of live state races against the very thing it's checking.** RoleWise's governance workflow read `github.event.pull_request.body` — a snapshot taken when the webhook fired — and evaluated it against that same event's head SHA. Push twice quickly, or edit the PR body and push in close succession, and GitHub queues multiple runs; an older run's stale event snapshot could fail (or wrongly pass) a PR that was already correct at its *current* head, because the body and head it evaluated together never actually coexisted. The fix has two independent parts, and both matter: (1) `concurrency: cancel-in-progress` so a superseded run stops before wasting a result on stale input, and (2) fetching body and head SHA *together, live, at execution time* (one API call), then skipping enforcement — not failing — when the live head no longer matches the event that triggered this run, leaving the newer run responsible. The general rule: any CI gate keyed off "what did the trigger say" rather than "what is true right now" is a latent race the moment more than one event can fire for the same unit of work in quick succession.
 
+### III.9 Customer feedback and happy-path discipline
+
+Once agents ship customer-facing changes, "did this actually make the
+customer's experience better" becomes a live decision that needs its own
+evidence trail — the same way III.8 gave git integration a live decision
+("which branch is safe to build on") instead of leaving it to memory.
+Extracted and generalized from RoleWise's customer-feedback harness after it
+proved out in production; the templates live in
+`templates/customer-feedback/`.
+
+- **Customer experience is a gated priority, not a free variable.** Security,
+  privacy, authorization, and data integrity come first; correct, reliable
+  core functionality comes second; only among choices that clear both does
+  customer experience outrank cost, delivery speed, or architectural
+  preference. This is IV.1's Tier 1/Tier 2 ordering applied to the specific
+  case of "should we ship this customer-facing change" — a cheaper response
+  that is truncated, confusing, or unreliable is a regression, not a
+  successful optimization, exactly as IV.3 treats added complexity without a
+  named justification as a cost rather than free.
+- **Feedback becomes a normalized, privacy-safe record before it becomes an
+  input to Build.** A raw complaint, beta observation, or Build-chat aside is
+  not yet usable evidence — it needs a source, an affected happy path, a
+  severity/confidence pair, and an owner before an agent can act on it as
+  more than anecdote. `templates/customer-feedback/feedback-record.md`
+  defines this contract; `scripts/customer_feedback_harness.py` normalizes it
+  and refuses (fails closed, per V.6) to accept secrets, credentials, or raw
+  private content into the record.
+- **A happy-path registry makes "the intended journey" explicit and
+  disputable**, instead of living only in individual agents' assumptions.
+  Products legitimately have more than one valid path to the same outcome;
+  the registry (`templates/customer-feedback/HAPPY_PATH_REGISTRY_TEMPLATE.md`)
+  records required vs. optional steps, valid branches, and recovery paths as
+  product policy — each entry starts `status: proposed` until the CEO (or a
+  recorded delegate) confirms it, mirroring III.5's rule that an inferred
+  scope is never silently treated as an approved one.
+- **A Build decision on a customer-facing change states its evidence, not
+  just its outcome:** affected path/feedback IDs, intended customer outcome,
+  expected effect on comprehension/completion/control/recovery, security and
+  functionality evidence, staging verification, and a rollback or
+  safe-disable path for anything material. A change with no rollback path is
+  the same "no removal path" gap III.5's simplicity guardrail already
+  rejects for organizational complexity, applied here to product changes.
+- **A weekly review closes the loop, not just logs the queue.** Reconcile new
+  and existing feedback, map it to happy paths, protect security/functionality
+  blockers first, run postmortems on material failures (per V's severity and
+  single-writer discipline), and — critically — check whether *prior*
+  "resolved" items actually achieved their promised customer outcome before
+  counting them as done. `resolved` (code shipped) and `verified` (customer
+  outcome confirmed) are deliberately distinct statuses; conflating them is
+  the customer-feedback equivalent of IV.2's warning against rewarding
+  technical acceptance that never reached a user. Generate a first-pass draft
+  with `scripts/build_weekly_feedback_review.py`; a machine-authored draft is
+  decision support, not the decision itself — it still needs the same
+  writer-cannot-self-approve separation as everywhere else in this framework.
+- **Two safety knobs let this generalize across products without forking the
+  module.** `pseudonym_namespace` salts reporter-reference hashing per
+  product (pick one and never change it); `extra_forbidden_fragments` lets a
+  product add its own private-content vocabulary (a resume, a health record,
+  whatever this product's equivalent is) on top of the built-in
+  secrets/credentials baseline. See the module's docstring in
+  `scripts/customer_feedback_harness.py`.
+
+Adopt this by copying `templates/customer-feedback/` into
+`docs/customer-feedback/` per that directory's own README, and folding a
+"Customer feedback and happy paths" pointer into your project's `CLAUDE.md`/
+`AGENTS.md` the way III.8's git covenant is wired in — every agent should
+auto-load the Build-agent instructions before touching a customer-facing
+surface, not discover them mid-task.
+
 ---
 
 ## Part IV — Agent Evaluation
@@ -374,7 +444,7 @@ These are not generic best practices — they are specific corrections to a docu
 1. **State the vision, diagnosis, guiding policy, and human-in-command boundary** (Part I). Get CEO sign-off in writing, versioned.
 2. **Stand up the two roles** — CEO and Strategy & Portfolio Lead — even if the same human holds both.
 3. **Name the Build lanes you actually need** (at minimum Product+Delivery and an independent Assurance function; add Strategic Discovery only when you have a named future decision to research).
-4. **Name your customer-facing value-stream stages**, if the product has direct end users, and assign one accountable owner for the whole journey.
+4. **Name your customer-facing value-stream stages**, if the product has direct end users, and assign one accountable owner for the whole journey. If so, also adopt §III.9's customer-feedback and happy-path discipline (`templates/customer-feedback/`) — an internal-only tool can skip this.
 5. **Write the first Mission Packet** (Appendix D) for the very first piece of work, however small, and enforce Part II's economic allocation section on it — including a prototype's very first "hello world" mission. The discipline should exist before the first real dollar/token is spent, not after the first overrun.
 6. **Schedule the Weekly Portfolio Review** (Appendix A) from week one, even with one mission in it.
 7. **Adopt the coordination handshake and evaluation acknowledgement** (Appendix E) as the literal words every agent states before starting work.

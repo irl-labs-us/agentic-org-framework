@@ -1,6 +1,6 @@
 # Agentic Organization Framework
 
-A product-agnostic operating system for a human principal (a "CEO") directing a team of AI agents from strategy through budget through build — plus the concrete git-integration discipline needed once more than one agent can write code.
+A product-agnostic operating system for a human principal (a "CEO") directing a team of AI agents from strategy through budget through build — plus the concrete git-integration discipline needed once more than one agent can write code, and an optional customer-feedback/happy-path discipline for products with direct end users.
 
 This repo is a **GitHub template**. Use it to scaffold the coordination layer of a new project; don't fork it as a dependency.
 
@@ -22,6 +22,7 @@ flowchart TB
     BUDGET["Part II — Budget & Portfolio<br/>Mission packets, circuit breakers,<br/>two-attempt rule, weekly review"]
     ORG["Part III — Organizational Structure<br/>Build org, customer-facing org,<br/>mission overlays, decision rights"]
     GIT["Part III.8 — Git & Integration Discipline<br/>Merge Steward, worktree leases,<br/>single-use branches, PR governance CI"]
+    FEEDBACK["Part III.9 — Customer Feedback & Happy Paths<br/>Normalized intake, happy-path registry,<br/>weekly review, release gates"]
     EVAL["Part IV — Agent Evaluation<br/>Tier 1 (alignment, safety, quality)<br/>before Tier 2 (efficiency)"]
     DEBUG["Part V — Debugging & Escalation<br/>Severity, single-writer rule,<br/>two-attempt stop"]
     GUARDRAILS["Part VI — Postmortem-Derived Guardrails<br/>Read before funding anything<br/>'foundational' or 'enabling'"]
@@ -29,9 +30,11 @@ flowchart TB
     STRATEGY -->|"funds work within"| BUDGET
     BUDGET -->|"staffs missions inside"| ORG
     ORG -->|"any mission touching code follows"| GIT
+    ORG -->|"any mission touching a customer surface follows"| FEEDBACK
     ORG -->|"every agent is judged by"| EVAL
     ORG -->|"any blocker follows"| DEBUG
     GIT -->|"is one instance of the single-writer rule in"| DEBUG
+    FEEDBACK -->|"material failures become cases in"| DEBUG
     EVAL -.->|"protects against gaming"| GUARDRAILS
     DEBUG -.->|"an unresolved case can become"| GUARDRAILS
     GUARDRAILS -.->|"corrects"| STRATEGY
@@ -56,6 +59,9 @@ Solid arrows are the normal top-down flow of authority and work; dashed arrows a
 | `scripts/check_pr_readiness.py` | Pre-flight check to run before opening/updating a **feature** PR (strict ancestry model — do not use for releases). |
 | `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. |
 | `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. |
+| `templates/customer-feedback/` | Optional §III.9 add-on for products with direct end users: normalized feedback intake, happy-path registry, weekly-review templates, and the Build-agent instructions that wire them into every customer-facing change. See that directory's own README. |
+| `scripts/customer_feedback_harness.py` | Privacy-safe feedback normalization and deterministic weekly-review rendering behind §III.9. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
+| `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
 
 ## Manual setup
 
@@ -67,7 +73,8 @@ If you'd rather not run the interview, `SETUP.md`'s sections map directly onto t
 4. Create a pinned GitHub issue to serve as your live Git-work lease ledger (title it "Git-Work Lease Ledger"; see `SETUP.md` §5 for the exact starter body). Replace the `<org>/<repo>/issues/<lease-ledger-issue-number>` placeholders in `docs/coordination/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`) with the real issue URL.
 5. Set your default integration branch/remote names if they differ from `staging`/`main`/`origin` — update the defaults in `scripts/check_pr_readiness.py`, `scripts/create_feature_worktree.py`, and `scripts/create_release_pr.py`.
 6. `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are — GitHub requires that location.
-7. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
+7. If the product has direct end users, adopt §III.9: copy `templates/customer-feedback/` into `docs/customer-feedback/` per that directory's README, replacing `{Your Product}` and `{CEO}` throughout, and add a pointer to `BUILD_AGENT_INSTRUCTIONS.md` in your `AGENTS.md`/`CLAUDE.md`. Skip this for an internal-only tool.
+8. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
 
 **Note on the release path:** `main` normally diverges from a persistent `staging` branch after every GitHub release merge (the release merge commit only exists on `main`), so a naive "base must be an ancestor of head" ancestry check will fail on the *second* release PR, not the first — this is the failure mode `scripts/check_git_governance.py` and `scripts/create_release_pr.py` are built to avoid. If you're adopting this checker on a repo where `main`/`staging` have already diverged by more than one prior release, you'll need the one-time bootstrap noted in `templates/GIT_OPERATIONS_COVENANT.md`'s release contract before the first governed release PR can pass.
 

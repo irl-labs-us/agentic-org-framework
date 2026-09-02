@@ -129,13 +129,35 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
 
 ---
 
-## Section 6 — First mission packet (optional, recommended)
+## Section 6 — Customer feedback and happy-path discipline (`FRAMEWORK.md` §III.9, optional)
+
+Ask first: **does this product have direct end users it will get feedback from** (a customer-facing agent organization, per Section 3)? If it's an internal-only tool or pure API, say so explicitly and skip this whole section — don't force it.
+
+If yes:
+
+1. **Confirm names.** You already have the CEO from Section 2 and the product name from Section 0; that's everything the templates need.
+2. **Copy the templates into place**, if you have file access:
+   - `templates/customer-feedback/FEEDBACK_HARNESS_TEMPLATE.md` → `docs/customer-feedback/FEEDBACK_HARNESS.md`
+   - `templates/customer-feedback/BUILD_AGENT_INSTRUCTIONS_TEMPLATE.md` → `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md`
+   - `templates/customer-feedback/HAPPY_PATH_REGISTRY_TEMPLATE.md` → `docs/customer-feedback/HAPPY_PATHS.md` (or a name matching the product)
+   - `templates/customer-feedback/{feedback-record,happy-path,weekly-review}.md` → `docs/customer-feedback/templates/` (as-is, no placeholders to fill)
+   - `scripts/customer_feedback_harness.py` and `scripts/build_weekly_feedback_review.py` stay in `scripts/`.
+   If you don't have file access, print the exact copy/find-replace commands for the user to run themselves.
+3. **Substitute placeholders** across the three copied `docs/customer-feedback/*.md` files: `{Your Product}` → the product name, `{CEO}` → the CEO's real name.
+4. **Wire it into the agent convention file.** Add a one-line pointer to `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` in the project's `AGENTS.md`/`CLAUDE.md` (or equivalent), the same way this repo's own `AGENTS.md`/`CLAUDE.md` point at `SETUP.md` — so every agent auto-loads it before touching a customer-facing surface, not only when someone remembers to mention it.
+5. **Pick a `pseudonym_namespace`.** A short, permanent, product-specific string (e.g. the product's slug) — tell the user this is a one-way door: changing it later re-pseudonymizes every existing feedback record's `reporter_ref` and breaks continuity with prior weekly reviews. Record it as the default in whatever wrapper script or CI job will call `build_weekly_feedback_review.py`.
+6. **Ask about product-specific private-content fields.** Does this product handle anything the generic safety baseline wouldn't already catch (a resume, a health record, a financial document)? If so, note it as an `extra_forbidden_fragments` list to pass to the harness — don't guess; leave it `TBD` if the user is unsure.
+7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 7's first mission packet proves the rest of the framework.
+
+---
+
+## Section 7 — First mission packet (optional, recommended)
 
 Offer to draft the very first Mission Packet (`docs/coordination/MISSION_PACKET_TEMPLATE.md`, condensed version in `FRAMEWORK.md` Appendix D) for whatever the user wants to build first. This is the fastest way to prove the whole framework works end to end rather than leaving it as an unused constitution. Ask what the first piece of work is, and fill in the template live with the user — including the git lease fields from Section 5, now that the ledger exists.
 
 ---
 
-## Section 7 — Handoff summary
+## Section 8 — Handoff summary
 
 Close with:
 
