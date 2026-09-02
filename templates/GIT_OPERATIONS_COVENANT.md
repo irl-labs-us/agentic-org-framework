@@ -9,7 +9,22 @@
 
 Git is an integration boundary, not a transport shortcut. A task pass, QA pass, clean local test run, or completed handoff does not authorize a merge. This covenant keeps the reviewed, tested, merged, and deployed commits traceable and prevents branches or worktrees from becoming unowned continuing workspaces.
 
+## Solo-operator mode
+
+Everything below describes **multi-operator mode**: a repo with more than one person (or a person plus other agents/operators) who could plausibly hold write access at once, where the Merge Steward role, delegation, and the live-ledger lease grant exist to make "who is authorized to merge this, right now" a fact instead of a guess between them.
+
+If this repo has exactly one human operator directing agent sessions — nobody else who could hold Merge Steward or grant a lease — adopt **solo-operator mode** instead:
+
+- **Drop:** the live Git-work lease ledger (no pinned tracking issue, no `LEASE REQUEST`/`LEASE GRANTED` comment ceremony), Merge Steward delegation (there is no one to delegate to or from), and the `## Git-work lease` requirement in pull-request bodies. Set `SOLO_MODE = True` in `scripts/check_git_governance.py` (or pass `--solo-mode` per-invocation) so CI stops requiring that section.
+- **Keep, unconditionally:** single-use branches created from a freshly fetched exact base SHA, the changed-file manifest matching the real diff, the ban on undeclared merge commits and stacked PRs, the release path's merge-base scoping, and the high-risk-scope classification. These are what actually caught RoleWise's real failure — parallel branches drifting from the base without reconciling — and that failure mode is just as real for one operator running multiple parallel agent sessions as it is for multiple humans. `scripts/check_git_governance.py`'s `SOLO_MODE` flag deliberately only removes the lease-ledger check; every other check in `validate()` stays mandatory regardless.
+- **Replace "Merge Steward decision" with "operator sign-off."** {CEO} (or whoever the sole operator is) is permanently the only merge authority — there's no rotation, no delegation, and no second identity to check a lease grant against. The merge-steward checklist below still applies; just read every "Merge Steward" reference as "the operator, deliberately slowing down before merging" rather than a role handoff.
+- **High-risk review has no second human by construction.** Where multi-operator mode requires a *named independent reviewer* for high-risk scope, solo mode substitutes a deliberate second pass — reread the diff after a break, or route it through a fresh agent session with no memory of writing it, before merging. This is weaker than genuine independent review and the covenant does not pretend otherwise; it's the honest floor for one operator, not a target to relax toward if a second reviewer becomes available.
+
+If a second operator joins later, switch back to multi-operator mode rather than running a hybrid — a lease ledger with only sometimes-enforced grants is worse than either mode cleanly applied.
+
 ## Authority
+
+*(Multi-operator mode. Skip this section and the Worktree lease section below if you adopted solo-operator mode above.)*
 
 - The **Merge Steward on duty** is the only person or agent authorized to merge into `staging` or `main`.
 - {CEO name} is the interim Merge Steward. A delegate has authority only when the delegation, exact non-overlapping target/scope, start, and expiry are granted in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>).
@@ -41,6 +56,8 @@ Git is an integration boundary, not a transport shortcut. A task pass, QA pass, 
 - A feature range containing an undeclared merge commit fails the integration gate.
 
 ## Worktree lease
+
+*(Multi-operator mode only — skip in solo-operator mode; see above.)*
 
 Before substantive repository work, the mission must have a granted lease in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>). A writer posts a `LEASE REQUEST` comment and {Strategy & Portfolio Lead} or the Merge Steward grants it in a separate `LEASE GRANTED` comment. Only the grant creates authority; a feature-branch edit to `GIT_WORK_REGISTRY.md` does not. The grant contains:
 

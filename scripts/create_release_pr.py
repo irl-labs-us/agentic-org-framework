@@ -124,11 +124,41 @@ def collect_release_context(
 def render_release_body(
     context: ReleaseContext,
     *,
-    lease_id: str,
-    grant_url: str,
+    lease_id: str | None,
+    grant_url: str | None,
     evidence: str,
+    solo_mode: bool = False,
 ) -> str:
-    validate_release_metadata(lease_id, grant_url)
+    if solo_mode:
+        branch_integration_lease = "- Git-work lease: N/A — solo-operator mode (see GIT_OPERATIONS_COVENANT.md)"
+        lease_section = ""
+        steward_line = "the operator"
+        risk_evidence = (
+            "High-risk production release; current-head CI, staging verification, specialist evidence "
+            "for included high-risk changes, and a deliberate operator second pass required"
+        )
+        deploy_authority = "The PR authorizes no merge by itself; only the operator merges, after a deliberate second pass"
+    else:
+        assert lease_id is not None and grant_url is not None
+        validate_release_metadata(lease_id, grant_url)
+        branch_integration_lease = (
+            f"- Git-work lease ID: {lease_id}\n- Live-ledger lease grant: {grant_url}"
+        )
+        lease_section = f"""
+## Git-work lease
+
+- Git-work lease ID: {lease_id}
+- Live-ledger grant link: {grant_url}
+- Lease expiry: See live grant
+- Closeout owner and disposition: {{CEO}} / {{Strategy & Portfolio Lead}}; close after release merge or PR closure
+"""
+        steward_line = "{CEO}"
+        risk_evidence = (
+            "High-risk production release; current-head CI, staging verification, specialist evidence "
+            "for included high-risk changes, and Merge Steward decision required"
+        )
+        deploy_authority = "The PR authorizes no merge by itself; only the recorded Merge Steward may merge"
+
     validate_manifest_paths(context.files)
     manifest = "\n".join(f"- `{path}`" for path in context.files)
     base_branch = context.base_ref.rsplit("/", 1)[-1]
@@ -146,24 +176,16 @@ Release the exact verified `staging` state to production through `{base_branch}`
 
 ## Branch integration
 
-- Git-work lease ID: {lease_id}
-- Live-ledger lease grant: {grant_url}
+{branch_integration_lease}
 - Persistent release branch: `{context.head_ref}`
 - Target branch / fetched tracking ref: `{context.base_ref}`
 - Exact target base SHA: `{context.base_sha}`
 - Exact release head SHA: `{context.head_sha}`
 - Common merge base: `{context.merge_base}`
 - Publication shape: Authorized persistent-branch release
-- Merge Steward on duty: {{CEO}}
-- Risk class / review evidence: High-risk production release; current-head CI, staging verification, specialist evidence for included high-risk changes, and Merge Steward decision required
-
-## Git-work lease
-
-- Git-work lease ID: {lease_id}
-- Live-ledger grant link: {grant_url}
-- Lease expiry: See live grant
-- Closeout owner and disposition: {{CEO}} / {{Strategy & Portfolio Lead}}; close after release merge or PR closure
-
+- Merge Steward on duty: {steward_line}
+- Risk class / review evidence: {risk_evidence}
+{lease_section}
 ## Changed-file manifest
 
 {manifest}
@@ -171,8 +193,8 @@ Release the exact verified `staging` state to production through `{base_branch}`
 ## Evidence
 
 - Tests and checks: {evidence}
-- Limitations or open gates: Release merge remains prohibited until all current-head checks, staging verification, live-ledger match, and the final Merge Steward freshness decision pass
-- Deployment/production authority: The PR authorizes no merge by itself; only the recorded Merge Steward may merge
+- Limitations or open gates: Release merge remains prohibited until all current-head checks, staging verification{"" if solo_mode else ", live-ledger match"}, and the final {"operator" if solo_mode else "Merge Steward"} freshness decision pass
+- Deployment/production authority: {deploy_authority}
 """
     body_size = len(body.encode("utf-8"))
     if body_size > MAX_PR_BODY_BYTES:
@@ -292,8 +314,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--base", default="main", choices=("main", "master"))
     parser.add_argument("--head", default="staging", choices=("staging",))
-    parser.add_argument("--lease-id", required=True)
-    parser.add_argument("--grant-url", required=True)
+    parser.add_argument(
+        "--lease-id",
+        help="Required unless --solo-mode (a single-operator repo has no lease ledger)",
+    )
+    parser.add_argument(
+        "--grant-url",
+        help="Required unless --solo-mode (a single-operator repo has no lease ledger)",
+    )
+    parser.add_argument(
+        "--solo-mode",
+        action="store_true",
+        help=(
+            "Single-operator repo: omit the lease-ledger section entirely instead of "
+            "requiring --lease-id/--grant-url. Must match SOLO_MODE in "
+            "scripts/check_git_governance.py or the governance check will still demand "
+            "a lease section this body doesn't have."
+        ),
+    )
     parser.add_argument(
         "--evidence",
         default="Current-head CI and staging release verification pending",
@@ -304,20 +342,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Render the complete body without calling GitHub",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.solo_mode and (not args.lease_id or not args.grant_url):
+        parser.error("--lease-id and --grant-url are required unless --solo-mode is set")
+    return args
 
 
 def main() -> None:
     args = parse_args()
     repo = Path(args.repo).resolve()
     try:
-        validate_release_metadata(args.lease_id, args.grant_url)
         context = collect_release_context(repo, args.remote, args.base, args.head)
         body = render_release_body(
             context,
             lease_id=args.lease_id,
             grant_url=args.grant_url,
             evidence=args.evidence,
+            solo_mode=args.solo_mode,
         )
         if args.dry_run:
             print(body, end="")

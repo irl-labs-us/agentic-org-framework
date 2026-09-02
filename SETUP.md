@@ -99,7 +99,10 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
 
 1. **Confirm the repo.** Ask for `<org>/<repo>` (the actual GitHub owner/repo this project will live in) and the integration branch names if they differ from `staging`/`main`.
 2. **Confirm names.** You already have CEO, Strategy & Portfolio Lead, and Merge Steward from Section 2, and the product name from Section 0.
-3. **Create the live Git-work lease ledger.** This is a single pinned GitHub issue that acts as the source of truth for who holds which worktree/branch. Tell the user to create it now — give them this to paste in:
+3. **Ask: solo-operator or multi-operator?** This is the one fork that changes the rest of this section — see `FRAMEWORK.md` §III.8's solo-vs-multi-operator note and `templates/GIT_OPERATIONS_COVENANT.md`'s "Solo-operator mode" section for the full reasoning. Ask directly: *is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you?* If genuinely no (one human directing agent sessions solo), it's solo-operator mode. If yes, it's multi-operator mode (the default described in the rest of this section). Don't default to multi-operator ceremony a solo project will never use — but don't talk a genuinely multi-person team out of it either.
+   - **If solo-operator:** skip steps 4–5 below entirely (no ledger issue, no lease-ledger placeholder substitution). Instead: set `SOLO_MODE = True` in `scripts/check_git_governance.py`, and tell the user every `scripts/create_release_pr.py` invocation needs `--solo-mode` (drop `--lease-id`/`--grant-url`). Still do steps 1–2, 6, and 7 (repo/name confirmation, placeholder substitution for `{CEO}`/`{Your Product}`/remote name only, the release-path bootstrap note, and moving files into place) — solo mode is a narrower ceremony, not "skip Section 5."
+   - **If multi-operator:** continue with steps 4–5 below as written.
+4. **Create the live Git-work lease ledger** (multi-operator only). This is a single pinned GitHub issue that acts as the source of truth for who holds which worktree/branch. Tell the user to create it now — give them this to paste in:
 
    ```
    Title: Git-Work Lease Ledger
@@ -110,22 +113,22 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
    ```
 
    Ask the user to pin it and report back the issue number.
-4. **Substitute placeholders.** With the issue number in hand, if you have file access, do a project-wide find-and-replace across `templates/GIT_OPERATIONS_COVENANT.md`, `templates/GIT_WORK_REGISTRY.md`, `templates/MISSION_PACKET_TEMPLATE.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`):
+5. **Substitute placeholders.** With the issue number in hand (multi-operator) or without one (solo-operator, skip the `<lease-ledger-issue-number>` substitution), if you have file access, do a project-wide find-and-replace across `templates/GIT_OPERATIONS_COVENANT.md`, `templates/GIT_WORK_REGISTRY.md`, `templates/MISSION_PACKET_TEMPLATE.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`):
    - `<org>/<repo>` → the real slug
-   - `<lease-ledger-issue-number>` → the real issue number
+   - `<lease-ledger-issue-number>` → the real issue number (multi-operator only)
    - `{CEO}` → the CEO's real name
    - `{Strategy & Portfolio Lead}` → that person's real name
    - `{Your Product}` → the product name
    - `origin` remote defaults in `scripts/create_feature_worktree.py` / `scripts/check_pr_readiness.py` / `scripts/create_release_pr.py` → the actual git remote name if it isn't `origin`
    If you don't have file access, print the exact `sed`/find-replace commands for the user to run themselves.
-5. **Move the filled-in files into place:**
+6. **Move the filled-in files into place:**
    - `templates/GIT_OPERATIONS_COVENANT.md` → `docs/coordination/GIT_OPERATIONS_COVENANT.md`
-   - `templates/GIT_WORK_REGISTRY.md` → `docs/coordination/GIT_WORK_REGISTRY.md`
+   - `templates/GIT_WORK_REGISTRY.md` → `docs/coordination/GIT_WORK_REGISTRY.md` (solo-operator: skip — nothing to snapshot without a ledger)
    - `templates/MISSION_PACKET_TEMPLATE.md` → `docs/coordination/MISSION_PACKET_TEMPLATE.md`
    - `templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` → `docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md`
    - `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are (GitHub requires the `.github/` location).
    - `scripts/*.py` stay in `scripts/`.
-6. **Flag the release-path bootstrap note.** If this project has an *existing* `main`/`staging` history that has already diverged by more than one prior release, tell the user now to read the "Adopting this checker on an existing repository" note in `docs/coordination/GIT_OPERATIONS_COVENANT.md` before their first governed release PR — it needs a one-time recorded exception. A brand-new repo doesn't need this.
+7. **Flag the release-path bootstrap note.** If this project has an *existing* `main`/`staging` history that has already diverged by more than one prior release, tell the user now to read the "Adopting this checker on an existing repository" note in `docs/coordination/GIT_OPERATIONS_COVENANT.md` before their first governed release PR — it needs a one-time recorded exception. A brand-new repo doesn't need this.
 
 ---
 

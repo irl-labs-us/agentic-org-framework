@@ -46,6 +46,18 @@ GRANT_URL_PATTERN = re.compile(
     rf"(?<!\S){re.escape(LIVE_LEDGER_URL)}#issuecomment-\d+(?=\s|$)"
 )
 
+# Set to True during onboarding ONLY for a genuinely single-operator repo — one
+# human directing agent sessions with no second person to hold Merge Steward
+# or grant leases (see FRAMEWORK.md §III.8's solo-vs-multi-operator note and
+# GIT_OPERATIONS_COVENANT.md's "Solo-operator mode" section). This drops the
+# live-ledger lease requirement only; every other check below (ancestry,
+# single-use branches, undeclared merge commits, changed-file manifest,
+# forbidden artifacts, high-risk classification) stays mandatory regardless —
+# those are what actually catch a stale/diverged branch, and a solo operator
+# juggling multiple parallel agent sessions needs them exactly as much as a
+# multi-person team does.
+SOLO_MODE = False
+
 
 class GovernanceError(RuntimeError):
     """A pull request violates the Git operations covenant."""
@@ -232,7 +244,8 @@ def validate(args: argparse.Namespace) -> tuple[list[str], int, bool]:
     body = Path(args.body_file).read_text(encoding="utf-8")
     for heading in ("Outcome", "Coordination and scope", "Evidence"):
         body_section(body, heading)
-    declared_lease(body)
+    if not (args.solo_mode or SOLO_MODE):
+        declared_lease(body)
     declared = declared_manifest(body)
     actual = set(files)
     if declared != actual:
@@ -264,22 +277,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--body-file", required=True)
     parser.add_argument("--prior-pr-count", type=int, default=0)
+    parser.add_argument(
+        "--solo-mode",
+        action="store_true",
+        help=(
+            "Drop the live-ledger lease requirement for a single-operator repo "
+            "(equivalent to setting SOLO_MODE = True above; a CLI override is "
+            "useful for testing without editing the file). Every other check "
+            "stays mandatory."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    solo = args.solo_mode or SOLO_MODE
     try:
         files, lines, high_risk = validate(args)
     except (GovernanceError, OSError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
-    print("PASS: Git operations covenant checks passed")
+    print("PASS: Git operations covenant checks passed" + (" (solo mode)" if solo else ""))
     print(f"target: {normalized_branch(args.base_ref)} @ {args.base_sha}")
     print(f"head: {normalized_branch(args.head_ref)} @ {args.head_sha}")
     print(f"scope: {len(files)} files, {lines} changed lines")
     evidence = "independent specialist/evaluator evidence required" if high_risk else "standard evidence"
-    print(f"risk: {'high' if high_risk else 'ordinary'}; {evidence}; Merge Steward decision required")
+    steward = "operator sign-off required" if solo else "Merge Steward decision required"
+    print(f"risk: {'high' if high_risk else 'ordinary'}; {evidence}; {steward}")
 
 
 if __name__ == "__main__":
