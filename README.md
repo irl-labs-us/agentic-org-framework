@@ -21,7 +21,7 @@ flowchart TB
     STRATEGY["Part I — Strategy<br/>CEO sets vision, diagnosis, guiding policy,<br/>human-in-command boundary"]
     BUDGET["Part II — Budget & Portfolio<br/>Mission packets, circuit breakers,<br/>two-attempt rule, weekly review"]
     ORG["Part III — Organizational Structure<br/>Build org, customer-facing org,<br/>mission overlays, decision rights"]
-    GIT["Part III.8 — Git & Integration Discipline<br/>Merge Steward, worktree leases,<br/>single-use branches, PR governance CI"]
+    GIT["Part III.8 — Git & Integration Discipline<br/>Solo- or multi-operator mode;<br/>single-use branches, PR governance CI<br/>always on, lease ledger only if multi"]
     FEEDBACK["Part III.9 — Customer Feedback & Happy Paths<br/>Normalized intake, happy-path registry,<br/>weekly review, release gates"]
     EVAL["Part IV — Agent Evaluation<br/>Tier 1 (alignment, safety, quality)<br/>before Tier 2 (efficiency)"]
     DEBUG["Part V — Debugging & Escalation<br/>Severity, single-writer rule,<br/>two-attempt stop"]
@@ -43,6 +43,8 @@ flowchart TB
 
 Solid arrows are the normal top-down flow of authority and work; dashed arrows are the feedback loop — Part VI exists because Parts I–V, followed correctly but without a "stop and check" mechanism, still produced an overrun in practice. Part VII in `FRAMEWORK.md` (Adoption Guide) walks the same path as a day-0 checklist.
 
+Part III.8 itself forks once at onboarding: **solo-operator** (one human directing agent sessions, nobody else who could hold write access) drops the Merge Steward/lease-ledger ceremony; **multi-operator** keeps it. The PR-governance CI checks (ancestry, single-use branches, changed-file manifest, high-risk classification) are not part of that fork — they run unconditionally in both modes. See §III.8 and `templates/GIT_OPERATIONS_COVENANT.md`'s "Solo-operator mode" section.
+
 ## What's in here
 
 | Path | What it's for |
@@ -50,15 +52,15 @@ Solid arrows are the normal top-down flow of authority and work; dashed arrows a
 | `FRAMEWORK.md` | The framework itself: strategy, budget/circuit-breakers, org structure, git discipline, agent evaluation, debugging/escalation, postmortem-derived guardrails, and condensed appendix templates. Read this first. |
 | `SETUP.md` | Agent-agnostic interview playbook — the fastest way to adopt this framework. See Quick start above. |
 | `templates/MISSION_PACKET_TEMPLATE.md` | Full mission packet to copy for every new assignment (condensed version is in `FRAMEWORK.md` Appendix D). |
-| `templates/GIT_OPERATIONS_COVENANT.md` | The full git governance contract referenced by `FRAMEWORK.md` §III.8 — merge authority, worktree leases, single-use branches, PR metadata contract. |
-| `templates/GIT_WORK_REGISTRY.md` | Blank audit-snapshot registry that mirrors your live lease ledger (a pinned GitHub issue — see below). |
+| `templates/GIT_OPERATIONS_COVENANT.md` | The full git governance contract referenced by `FRAMEWORK.md` §III.8 — merge authority, worktree leases, single-use branches, PR metadata contract, and the "Solo-operator mode" section for single-operator repos. |
+| `templates/GIT_WORK_REGISTRY.md` | Blank audit-snapshot registry that mirrors your live lease ledger (a pinned GitHub issue — see below). Multi-operator mode only; a solo-operator repo has no ledger to snapshot. |
 | `templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` | Generic org/communication-bus diagrams referenced by `FRAMEWORK.md` §III.6. |
-| `.github/pull_request_template.md` | PR body with the required sections the governance check parses (`## Outcome`, `## Git-work lease`, `## Changed-file manifest`, etc.). |
+| `.github/pull_request_template.md` | PR body with the required sections the governance check parses (`## Outcome`, `## Git-work lease`, `## Changed-file manifest`, etc.), with inline notes on what changes in solo-operator mode. |
 | `.github/workflows/git-governance.yml` | CI check that fails a PR closed when governance metadata is missing, stale, or inconsistent. Cancels superseded runs for the same PR and reads live PR body/head together at execution time (not the triggering event's snapshot) to avoid a race on rapid pushes/edits. |
 | `scripts/create_feature_worktree.py` | Creates a single-use feature branch/worktree directly from a freshly-fetched exact base SHA; fails if that SHA is no longer the remote tip. |
 | `scripts/check_pr_readiness.py` | Pre-flight check to run before opening/updating a **feature** PR (strict ancestry model — do not use for releases). |
-| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. |
-| `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. |
+| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. `SOLO_MODE` (or `--solo-mode`) drops only the lease-ledger requirement; every other check stays mandatory. |
+| `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. `--solo-mode` renders the release body without lease-ledger fields. |
 | `templates/customer-feedback/` | Optional §III.9 add-on for products with direct end users: normalized feedback intake, happy-path registry, weekly-review templates, and the Build-agent instructions that wire them into every customer-facing change. See that directory's own README. |
 | `scripts/customer_feedback_harness.py` | Privacy-safe feedback normalization and deterministic weekly-review rendering behind §III.9. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
 | `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
@@ -69,12 +71,13 @@ If you'd rather not run the interview, `SETUP.md`'s sections map directly onto t
 
 1. Click **Use this template** → **Create a new repository** (or copy these files into an existing repo).
 2. Fill in Part I's Strategy Constitution (`FRAMEWORK.md` §I.3) and save it as `docs/strategy/STRATEGY.md`. Name your two leadership roles (§III.2) and adapt the value-stream stages in §III.4 to your product.
-3. Move `templates/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `MISSION_PACKET_TEMPLATE.md`, and `SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` into `docs/coordination/`. Replace `{CEO}`, `{Strategy & Portfolio Lead}`, and `{Your Product}` with real names throughout.
-4. Create a pinned GitHub issue to serve as your live Git-work lease ledger (title it "Git-Work Lease Ledger"; see `SETUP.md` §5 for the exact starter body). Replace the `<org>/<repo>/issues/<lease-ledger-issue-number>` placeholders in `docs/coordination/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`) with the real issue URL.
-5. Set your default integration branch/remote names if they differ from `staging`/`main`/`origin` — update the defaults in `scripts/check_pr_readiness.py`, `scripts/create_feature_worktree.py`, and `scripts/create_release_pr.py`.
-6. `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are — GitHub requires that location.
-7. If the product has direct end users, adopt §III.9: copy `templates/customer-feedback/` into `docs/customer-feedback/` per that directory's README, replacing `{Your Product}` and `{CEO}` throughout, and add a pointer to `BUILD_AGENT_INSTRUCTIONS.md` in your `AGENTS.md`/`CLAUDE.md`. Skip this for an internal-only tool.
-8. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
+3. **Decide solo- or multi-operator** (§III.8): is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you? If not, it's solo-operator mode; skip step 4 and everywhere below marked multi-operator only. If yes, continue as written.
+4. Move `templates/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md` (multi-operator only), `MISSION_PACKET_TEMPLATE.md`, and `SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` into `docs/coordination/`. Replace `{CEO}`, `{Strategy & Portfolio Lead}`, and `{Your Product}` with real names throughout.
+5. **Multi-operator only:** create a pinned GitHub issue to serve as your live Git-work lease ledger (title it "Git-Work Lease Ledger"; see `SETUP.md` §5 for the exact starter body). Replace the `<org>/<repo>/issues/<lease-ledger-issue-number>` placeholders in `docs/coordination/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`) with the real issue URL. **Solo-operator:** instead set `SOLO_MODE = True` in `scripts/check_git_governance.py` and always pass `--solo-mode` to `scripts/create_release_pr.py`; there is no ledger issue to create.
+6. Set your default integration branch/remote names if they differ from `staging`/`main`/`origin` — update the defaults in `scripts/check_pr_readiness.py`, `scripts/create_feature_worktree.py`, and `scripts/create_release_pr.py`.
+7. `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are — GitHub requires that location.
+8. If the product has direct end users, adopt §III.9: copy `templates/customer-feedback/` into `docs/customer-feedback/` per that directory's README, replacing `{Your Product}` and `{CEO}` throughout, and add a pointer to `BUILD_AGENT_INSTRUCTIONS.md` in your `AGENTS.md`/`CLAUDE.md`. Skip this for an internal-only tool.
+9. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
 
 **Note on the release path:** `main` normally diverges from a persistent `staging` branch after every GitHub release merge (the release merge commit only exists on `main`), so a naive "base must be an ancestor of head" ancestry check will fail on the *second* release PR, not the first — this is the failure mode `scripts/check_git_governance.py` and `scripts/create_release_pr.py` are built to avoid. If you're adopting this checker on a repo where `main`/`staging` have already diverged by more than one prior release, you'll need the one-time bootstrap noted in `templates/GIT_OPERATIONS_COVENANT.md`'s release contract before the first governed release PR can pass.
 
@@ -91,5 +94,7 @@ RoleWise itself later removed the full framework — the CSO/CEO org-simulation 
 - **The overhead was measurable and one-sided.** Standing the framework up took 4+ PRs; removing it cleanly took 3 follow-up commits. That cost was paid without a matching case where the ceremony caught a problem the underlying git/CI mechanics wouldn't have caught on their own.
 
 None of this means the framework is wrong for its intended case — a real team with multiple people or agents needing role separation, budget/circuit-breaker discipline, and a shared coordination ledger. It means: before adopting the full org-simulation layer, check whether you actually have more than one decision-maker to coordinate. If not, the git-integration discipline (Part III.8) and postmortem guardrails (Part VI) may be worth keeping on their own, without Parts I–III's strategy/org/mission-packet ceremony on top.
+
+**Update:** Part III.8 itself now applies this same test internally. Its Merge Steward role and worktree-lease ledger have the exact "nobody to coordinate with" problem described above when there's truly one operator — so III.8 now has a solo-operator mode that drops that ceremony while keeping the CI-enforced git-hygiene checks (the part that actually caught real drift) mandatory in both modes. See §III.8 and `templates/GIT_OPERATIONS_COVENANT.md`'s "Solo-operator mode" section.
 
 Update this template as you learn — the whole point is that the next project starts with the last project's scar tissue built in, not re-derives it from scratch.
