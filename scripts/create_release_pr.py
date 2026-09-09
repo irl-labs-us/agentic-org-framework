@@ -129,6 +129,17 @@ def render_release_body(
     evidence: str,
     solo_mode: bool = False,
 ) -> str:
+    # Bare, non-f-string literals: SETUP.md's project-wide find-and-replace
+    # substitutes {CEO}/{Strategy & Portfolio Lead} with real names across
+    # every listed template file, this one included. Building these as
+    # plain string literals (not inline f-string text) means the source
+    # file contains the literal 5/28-character token find-replace expects
+    # -- not a doubled-brace f-string escape, which find-replace wouldn't
+    # cleanly match and which rendered as literal "{{CEO}}" in the output
+    # if setup's substitution was skipped.
+    ceo_placeholder = "{CEO}"
+    strategy_lead_placeholder = "{Strategy & Portfolio Lead}"
+
     if solo_mode:
         branch_integration_lease = "- Git-work lease: N/A — solo-operator mode (see GIT_OPERATIONS_COVENANT.md)"
         lease_section = ""
@@ -150,9 +161,9 @@ def render_release_body(
 - Git-work lease ID: {lease_id}
 - Live-ledger grant link: {grant_url}
 - Lease expiry: See live grant
-- Closeout owner and disposition: {{CEO}} / {{Strategy & Portfolio Lead}}; close after release merge or PR closure
+- Closeout owner and disposition: {ceo_placeholder} / {strategy_lead_placeholder}; close after release merge or PR closure
 """
-        steward_line = "{CEO}"
+        steward_line = ceo_placeholder
         risk_evidence = (
             "High-risk production release; current-head CI, staging verification, specialist evidence "
             "for included high-risk changes, and Merge Steward decision required"
@@ -169,7 +180,7 @@ Release the exact verified `staging` state to production through `{base_branch}`
 ## Coordination and scope
 
 - Mission or case: Governed staging-to-{base_branch} release
-- Accountable owner: {{CEO}}, CEO and Merge Steward
+- Accountable owner: {ceo_placeholder}, CEO and Merge Steward
 - Writer scope: Persistent `staging` release head only; no release-PR code edits
 - Independent reviewer: Required high-risk release evidence recorded below
 - Expected overlapping files and owning writer: Release manifest below; feature ownership remains with the originating staging PRs
@@ -203,6 +214,157 @@ Release the exact verified `staging` state to production through `{base_branch}`
             "narrow or separately archive evidence before publication"
         )
     return body
+
+
+def body_section(body: str, heading: str) -> str:
+    """
+    Return the raw text of a '## <heading>' section (everything up to the
+    next '## ' heading or end of body), stripped of leading/trailing blank
+    lines. Duplicated from check_git_governance.py rather than imported,
+    so this script stays independently runnable regardless of invocation
+    directory (matches how check_git_governance.py itself is invoked).
+    """
+    lines = body.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip().casefold() == f"## {heading}".casefold():
+            start = index + 1
+            break
+    if start is None:
+        raise ReleasePreparationError(f"existing PR body is missing '## {heading}'")
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return "\n".join(lines[start:end]).strip("\n")
+
+
+def sync_release_pr_mechanical_sections(
+    *,
+    repo: Path,
+    remote: str,
+    base_branch: str,
+    head_branch: str,
+    repo_slug: str,
+    solo_mode: bool,
+) -> str | None:
+    """
+    Refresh only the mechanically-derived sections (Branch integration,
+    Changed-file manifest -- and, in multi-operator mode, Git-work lease)
+    of the single open staging->main release PR, preserving Outcome,
+    Coordination and scope, and Evidence exactly as a human last wrote
+    them. Intended for CI to run on every push to staging, so the
+    manifest/SHA fields never go stale between real review passes --
+    without silently discarding curated evidence content on every push.
+
+    Returns a message describing what happened, or None if there is no
+    open release PR to refresh (a deliberate no-op, not an error -- this
+    must not surprise-create a PR that doesn't already exist).
+    """
+    existing = open_release_pr_numbers(repo_slug, base_branch, head_branch)
+    if not existing:
+        return None
+    if len(existing) > 1:
+        raise ReleasePreparationError(
+            "multiple open staging release PRs exist; close or reconcile them before continuing"
+        )
+    pr_number = existing[0]
+
+    old_body = run(
+        "gh", "pr", "view", str(pr_number), "--repo", repo_slug, "--json", "body", "-q", ".body"
+    )
+
+    context = collect_release_context(repo, remote, base_branch, head_branch)
+    # Placeholder evidence: this fresh render exists only to extract the
+    # mechanically-derived sections from; the real Evidence text below
+    # comes from the existing PR body, not this placeholder.
+    fresh_body = render_release_body(
+        context, lease_id=None, grant_url=None, evidence="__PLACEHOLDER__", solo_mode=solo_mode
+    )
+
+    outcome = body_section(old_body, "Outcome")
+    coordination = body_section(old_body, "Coordination and scope")
+    evidence = body_section(old_body, "Evidence")
+    branch_integration = body_section(fresh_body, "Branch integration")
+    manifest = body_section(fresh_body, "Changed-file manifest")
+
+    lease_block = ""
+    if not solo_mode:
+        lease_block = "\n## Git-work lease\n\n" + body_section(old_body, "Git-work lease") + "\n"
+
+    new_body = f"""## Outcome
+
+{outcome}
+
+## Coordination and scope
+
+{coordination}
+
+## Branch integration
+
+{branch_integration}
+{lease_block}
+## Changed-file manifest
+
+{manifest}
+
+## Evidence
+
+{evidence}
+"""
+    body_size = len(new_body.encode("utf-8"))
+    if body_size > MAX_PR_BODY_BYTES:
+        raise ReleasePreparationError(
+            f"refreshed release PR body is {body_size} bytes; limit is {MAX_PR_BODY_BYTES}; "
+            "narrow or separately archive the accumulated Evidence/Outcome content before publication"
+        )
+    body_file = materialize_release_body(new_body)
+    try:
+        run("gh", "pr", "edit", str(pr_number), "--repo", repo_slug, "--body-file", str(body_file))
+    finally:
+        body_file.unlink(missing_ok=True)
+    result = f"refreshed mechanical sections of PR #{pr_number}"
+    rerun_note = rerun_stale_check(repo_slug=repo_slug, head_branch=head_branch, head_sha=context.head_sha)
+    if rerun_note:
+        result += f"; {rerun_note}"
+    return result
+
+
+def rerun_stale_check(
+    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+) -> str | None:
+    """
+    Find the most recent run of `workflow_file` for `head_branch` whose head
+    SHA matches `head_sha`, and re-run it if it previously failed.
+
+    This exists because editing a PR body via `gh pr edit` with the ambient
+    GITHUB_TOKEN does *not* trigger a new `pull_request` "edited" event --
+    GitHub explicitly suppresses workflow-triggering for anything done by the
+    default token, to prevent infinite loops (see GitHub's docs on
+    triggering a workflow from a workflow). Without this, a stale "Git
+    operations covenant" failure sits on the PR forever, even after the
+    manifest that caused it is fixed.
+
+    Returns a message describing what happened, or None if there's no
+    matching run or it didn't previously fail (nothing to do).
+    """
+    raw = run(
+        "gh", "run", "list", "--repo", repo_slug, "--branch", head_branch,
+        "--workflow", workflow_file, "--json", "databaseId,headSha,conclusion,status", "--limit", "10",
+    )
+    match = next((r for r in json.loads(raw) if r["headSha"] == head_sha), None)
+    if match is None or match["status"] != "completed" or match["conclusion"] != "failure":
+        return None
+    run_id = match["databaseId"]
+    try:
+        run("gh", "run", "rerun", str(run_id), "--repo", repo_slug)
+    except ReleasePreparationError as exc:
+        # A rerun failing (e.g. the run aged out of GitHub's ~30-day rerun
+        # window) shouldn't turn an otherwise-successful manifest sync into
+        # a reported failure -- surface it as a note, not an exception.
+        return f"manifest refreshed, but could not re-trigger stale {workflow_file} run {run_id}: {exc}"
+    return f"re-triggered stale {workflow_file} run {run_id} for {head_sha[:8]} (GITHUB_TOKEN edits don't trigger it themselves)"
 
 
 def materialize_release_body(body: str) -> Path:
@@ -342,9 +504,28 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Render the complete body without calling GitHub",
     )
+    parser.add_argument(
+        "--sync-mechanical",
+        action="store_true",
+        help=(
+            "Refresh only the Branch integration / Changed-file manifest sections of the "
+            "single open release PR, preserving Outcome / Coordination and scope / Evidence "
+            "exactly as last written. No-op (not an error) if no release PR is currently open. "
+            "Intended for CI on every push to staging, so manifests never go stale between real "
+            "review passes without silently discarding curated evidence."
+        ),
+    )
     args = parser.parse_args()
     if not args.solo_mode and (not args.lease_id or not args.grant_url):
         parser.error("--lease-id and --grant-url are required unless --solo-mode is set")
+    if args.sync_mechanical and not args.solo_mode:
+        parser.error(
+            "--sync-mechanical currently only supports --solo-mode; "
+            "sync_release_pr_mechanical_sections() doesn't thread --lease-id/--grant-url "
+            "through to render_release_body(), so multi-operator mode would fail with an "
+            "unhandled assertion instead of a clean error. Wire lease/grant support through "
+            "before using --sync-mechanical outside solo-mode."
+        )
     return args
 
 
@@ -352,6 +533,17 @@ def main() -> None:
     args = parse_args()
     repo = Path(args.repo).resolve()
     try:
+        if args.sync_mechanical:
+            result = sync_release_pr_mechanical_sections(
+                repo=repo,
+                remote=args.remote,
+                base_branch=args.base,
+                head_branch=args.head,
+                repo_slug=args.repo_slug,
+                solo_mode=args.solo_mode,
+            )
+            print(result if result else "no open release PR to refresh; nothing to do")
+            return
         context = collect_release_context(repo, args.remote, args.base, args.head)
         body = render_release_body(
             context,

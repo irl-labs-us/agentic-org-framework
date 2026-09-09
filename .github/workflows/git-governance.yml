@@ -9,7 +9,18 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: git-governance-${{ github.event.pull_request.number }}
+  # SHA-scoped, not just per-PR: if you adopt scripts/sync_pr_manifest.py or
+  # create_release_pr.py --sync-mechanical (which re-run a stale run of this
+  # workflow via `gh run rerun`, since GITHUB_TOKEN-authored PR edits don't
+  # themselves trigger a fresh "edited" event), a rerun of an old failed run
+  # must never land in the same concurrency group as an in-progress run for
+  # a newer commit -- cancel-in-progress would cancel whichever run is
+  # already queued/running when the other is queued, and a stale rerun
+  # queued after a real run for a newer SHA would wrongly cancel the real
+  # one. Per-SHA groups mean different commits can never cancel each other;
+  # the "superseded" live-head-vs-event-head check below remains the
+  # correctness backstop for a stale run that completes anyway.
+  group: git-governance-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
   cancel-in-progress: true
 
 jobs:
