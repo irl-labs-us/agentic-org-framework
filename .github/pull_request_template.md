@@ -45,7 +45,7 @@ missing, renamed, misplaced, or inconsistent with the current PR head.
 - Risk class / review evidence: Ordinary / High-risk — GitHub approval temporarily not required; name independent specialist/evaluator evidence for high-risk work
 
 - [ ] I fetched the target remote immediately before this update.
-- [ ] `scripts/check_pr_readiness.py --target-ref <remote/branch> --recorded-base <full-sha>` passes.
+- [ ] `scripts/check_pr_readiness.py --target-ref <remote/branch> --recorded-base <full-sha> --body-file <this-file> [--solo-mode]` passes. The `--body-file` flag validates this body locally the same way CI will (required headings, well-formed manifest lines, manifest matching the real diff) — catch a formatting mistake here, not as a confusing CI failure after pushing.
 - [ ] This work is independent. If it once depended on another PR, I waited for that PR to merge and recreated this branch from the current target.
 - [ ] The local branch name does not diverge from an existing fetched remote branch of the same name.
 - [ ] The PR contains no undeclared file overlap or unrelated worktree changes.
