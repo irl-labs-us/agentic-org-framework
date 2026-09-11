@@ -1,0 +1,59 @@
+name: Sync feature PR manifest
+
+# Same root cause as release-pr-sync.yml, for ordinary feature PRs into
+# staging: check_git_governance.py requires "## Changed-file manifest" to
+# exactly match the live diff, so it goes stale -- and the "Git operations
+# covenant" check fails again -- the instant another commit lands on a
+# branch with an open PR. There was no automated fix for this path at all
+# (create_release_pr.py --sync-mechanical only covers staging->main).
+#
+# scripts/sync_pr_manifest.py deliberately touches only "## Changed-file
+# manifest" -- never "## Branch integration" (a feature PR's checklist
+# there is human-checked, not mechanical, unlike the release PR's) -- so a
+# human's verification checkboxes are never silently reset by this
+# automation. No-op (not a failure) if no open PR matches the pushed
+# branch; never opens a PR itself.
+#
+# After editing the PR body, this also re-runs "Git operations covenant"
+# (git-governance.yml) if its last run for this exact head SHA failed --
+# GitHub does not deliver a fresh pull_request "edited" event for edits
+# made by the ambient GITHUB_TOKEN (loop prevention), so without this the
+# covenant check would sit on its stale failure forever even after the
+# manifest that caused it is fixed. Requires actions: write to call
+# `gh run rerun`.
+
+on:
+  push:
+    branches-ignore: [staging, main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: feature-pr-manifest-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Refresh this branch's open PR manifest, if any
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refresh Changed-file manifest only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_SLUG: ${{ github.repository }}
+          HEAD_REF: ${{ github.ref_name }}
+        run: >-
+          python scripts/sync_pr_manifest.py
+          --repo .
+          --repo-slug "$REPO_SLUG"
+          --base staging
+          --head "$HEAD_REF"

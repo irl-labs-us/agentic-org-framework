@@ -148,9 +148,12 @@ def changed_lines(
 
 
 def is_forbidden(path: str) -> bool:
-    if path in FORBIDDEN_EXACT or path.startswith(FORBIDDEN_PREFIXES):
+    segments = path.split("/")
+    filename = segments[-1]
+    forbidden_dir_names = tuple(prefix.rstrip("/") for prefix in FORBIDDEN_PREFIXES)
+    if filename in FORBIDDEN_EXACT or any(seg in forbidden_dir_names for seg in segments[:-1]):
         return True
-    if path.startswith(".env.") and path != ".env.example":
+    if filename.startswith(".env.") and filename != ".env.example":
         return True
     return "__pycache__/" in path or path.endswith((".pyc", ".pyo"))
 
