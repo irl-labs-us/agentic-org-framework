@@ -180,14 +180,29 @@ def main() -> None:
     )
     parser.add_argument(
         "--solo-mode",
-        action="store_true",
+        # Was action="store_true": combined with default=SOLO_MODE, there
+        # was no way to pass --solo-mode=False once SOLO_MODE was True --
+        # the flag could only ever be absent (falls back to the True
+        # default) or present (sets True again, a no-op). Harmless while
+        # SOLO_MODE is False here (this template's own default), but once a
+        # project adopts solo-operator mode (SOLO_MODE flips to True in
+        # check_git_governance.py, and presumably here too), this local
+        # preflight would have no way to require the "## Git-work lease"
+        # section on a per-invocation basis -- it'd just silently inherit
+        # whatever the new default is, with no override in either direction
+        # (code-review correctness finding, 2026-09-10, found during
+        # real-world dogfooding). BooleanOptionalAction adds a paired
+        # --no-solo-mode flag, fixing that, with no change to today's
+        # default behavior.
+        action=argparse.BooleanOptionalAction,
         default=SOLO_MODE,
         help=(
             "Skip the Git-work lease heading requirement (matches check_git_governance.py's "
             f"SOLO_MODE). Defaults to this script's own SOLO_MODE constant (currently {SOLO_MODE}) "
             "-- update that constant alongside check_git_governance.py's if you adopt solo-operator "
             "mode via SETUP.md, so an operator following the covenant's prose instruction without "
-            "spelling out this flag still gets the behavior that actually matches this project."
+            "spelling out this flag still gets the behavior that actually matches this project. "
+            "Pass --no-solo-mode to require the Git-work lease section explicitly."
         ),
     )
     args = parser.parse_args()

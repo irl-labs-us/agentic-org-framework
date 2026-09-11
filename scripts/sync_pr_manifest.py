@@ -50,9 +50,17 @@ def run(*command: str) -> str:
     return result.stdout.strip()
 
 
-def body_section(body: str, heading: str) -> str:
-    """Return a '## <heading>' section's raw text, stripped of surrounding blank lines."""
-    lines = body.splitlines()
+def _section_bounds(lines: list[str], heading: str) -> tuple[int, int]:
+    """
+    Line-index bounds (start, end) of a '## <heading>' section's body --
+    start is the line right after the heading, end is the next '## '
+    heading (or EOF). Was reimplemented identically in body_section() and
+    replace_section() below (a same-file duplication, distinct from -- and
+    safe to fix unlike -- the cross-script body_section() duplication in
+    check_git_governance.py/check_pr_readiness.py/create_release_pr.py,
+    which is a deliberate "stay independently runnable" tradeoff; code-
+    review reuse finding, 2026-09-10).
+    """
     start = None
     for index, line in enumerate(lines):
         if line.strip().casefold() == f"## {heading}".casefold():
@@ -65,24 +73,20 @@ def body_section(body: str, heading: str) -> str:
         if lines[index].startswith("## "):
             end = index
             break
+    return start, end
+
+
+def body_section(body: str, heading: str) -> str:
+    """Return a '## <heading>' section's raw text, stripped of surrounding blank lines."""
+    lines = body.splitlines()
+    start, end = _section_bounds(lines, heading)
     return "\n".join(lines[start:end])
 
 
 def replace_section(body: str, heading: str, new_text: str) -> str:
     """Replace a '## <heading>' section's content in-place, preserving every other section verbatim."""
     lines = body.splitlines()
-    start = None
-    for index, line in enumerate(lines):
-        if line.strip().casefold() == f"## {heading}".casefold():
-            start = index + 1
-            break
-    if start is None:
-        raise SyncError(f"existing PR body is missing '## {heading}'")
-    end = len(lines)
-    for index in range(start, len(lines)):
-        if lines[index].startswith("## "):
-            end = index
-            break
+    start, end = _section_bounds(lines, heading)
     return "\n".join(lines[:start]) + "\n\n" + new_text.strip("\n") + "\n\n" + "\n".join(lines[end:])
 
 
@@ -94,7 +98,13 @@ def open_pr_numbers(repo_slug: str, base_branch: str, head_branch: str) -> list[
     return [int(item["number"]) for item in json.loads(raw)]
 
 
-def compute_manifest(repo: Path, remote: str, base_branch: str, head_branch: str) -> list[str]:
+def compute_manifest(
+    repo: Path, remote: str, base_branch: str, head_branch: str
+) -> tuple[list[str], str]:
+    """Returns (sorted changed-file paths, head_sha) -- head_sha is returned
+    too (not just used internally) so sync() below can reuse it instead of
+    re-running an identical `git rev-parse` a second time (code-review
+    efficiency finding, 2026-09-10)."""
     run(
         "git", "-C", str(repo), "fetch", "--prune", "--no-tags", remote,
         f"+refs/heads/{base_branch}:refs/remotes/{remote}/{base_branch}",
@@ -129,7 +139,7 @@ def compute_manifest(repo: Path, remote: str, base_branch: str, head_branch: str
     files = [line for line in files if line]
     if not files:
         raise SyncError(f"no changes between {base_branch} and {head_branch} after the relevant base")
-    return sorted(files)
+    return sorted(files), head_sha
 
 
 def rerun_stale_check(
@@ -178,10 +188,9 @@ def sync(*, repo: Path, remote: str, base_branch: str, head_branch: str, repo_sl
     pr_number = existing[0]
 
     old_body = run("gh", "pr", "view", str(pr_number), "--repo", repo_slug, "--json", "body", "-q", ".body")
-    manifest_lines = compute_manifest(repo, remote, base_branch, head_branch)
+    manifest_lines, head_sha = compute_manifest(repo, remote, base_branch, head_branch)
     manifest_text = "\n".join(f"- `{path}`" for path in manifest_lines)
     new_body = replace_section(old_body, "Changed-file manifest", manifest_text)
-    head_sha = run("git", "-C", str(repo), "rev-parse", f"{remote}/{head_branch}")
 
     if new_body == old_body:
         result = f"PR #{pr_number} manifest already current; nothing to do"
