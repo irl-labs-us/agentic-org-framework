@@ -23,6 +23,7 @@ flowchart TB
     ORG["Part III — Organizational Structure<br/>Build org, customer-facing org,<br/>mission overlays, decision rights"]
     GIT["Part III.8 — Git & Integration Discipline<br/>Solo- or multi-operator mode;<br/>single-use branches, PR governance CI<br/>always on, lease ledger only if multi"]
     FEEDBACK["Part III.9 — Customer Feedback & Happy Paths<br/>Normalized intake, happy-path registry,<br/>weekly review, release gates"]
+    DESIGN["Part III.10 — AI-Generated Output Discipline<br/>Entropy seeding, critic loop,<br/>subtraction pass, human copy edit"]
     EVAL["Part IV — Agent Evaluation<br/>Tier 1 (alignment, safety, quality)<br/>before Tier 2 (efficiency)"]
     DEBUG["Part V — Debugging & Escalation<br/>Severity, single-writer rule,<br/>two-attempt stop"]
     GUARDRAILS["Part VI — Postmortem-Derived Guardrails<br/>Read before funding anything<br/>'foundational' or 'enabling'"]
@@ -31,6 +32,7 @@ flowchart TB
     BUDGET -->|"staffs missions inside"| ORG
     ORG -->|"any mission touching code follows"| GIT
     ORG -->|"any mission touching a customer surface follows"| FEEDBACK
+    ORG -->|"any mission with a user-facing creative surface follows"| DESIGN
     ORG -->|"every agent is judged by"| EVAL
     ORG -->|"any blocker follows"| DEBUG
     GIT -->|"is one instance of the single-writer rule in"| DEBUG
@@ -62,6 +64,7 @@ Part III.8 itself forks once at onboarding: **solo-operator** (one human directi
 | `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. `SOLO_MODE` (or `--solo-mode`) drops only the lease-ledger requirement; every other check stays mandatory. |
 | `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. `--solo-mode` renders the release body without lease-ledger fields. |
 | `templates/customer-feedback/` | Optional §III.9 add-on for products with direct end users: normalized feedback intake, happy-path registry, weekly-review templates, and the Build-agent instructions that wire them into every customer-facing change. See that directory's own README. |
+| `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` | Optional §III.10 add-on for any mission with a user-facing creative surface (UI, visual design, product copy): rationale, entropy-seeding/critic-loop prompt skeletons, and a delivery checklist (subtraction pass, project-specific AI-tells list, human copy edit). |
 | `scripts/customer_feedback_harness.py` | Privacy-safe feedback normalization and deterministic weekly-review rendering behind §III.9. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
 | `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
 

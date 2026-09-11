@@ -334,6 +334,90 @@ Adopt this by copying `templates/customer-feedback/` into
 auto-load the Build-agent instructions before touching a customer-facing
 surface, not discover them mid-task.
 
+### III.10 AI-generated output discipline (optional — any mission producing user-facing creative output)
+
+A model generating open-ended creative output — UI/visual design, marketing
+copy, layout — defaults to its single most statistically likely choice at
+every decision point. Unconstrained, this converges on generic, repetitive
+output ("AI slop") the same way an unmanaged mission overlay converges on
+scope creep, or an unreviewed PR converges on undetected drift: not because
+any one choice was wrong, but because nothing pushed back on the default
+path. This section gives that pushback a name and a repeatable procedure,
+the same way III.8 gave "which branch is safe to build on" a live decision
+instead of leaving it to memory. Skip this section for missions with no
+user-facing creative surface (a backend service, an internal CLI); adopt it
+for any mission touching UI, layout, visual design, or product copy a
+customer will see. Full rationale, prompt skeletons, and checklists live in
+`templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md`.
+
+- **The default path is not neutral — treat it as a cost, not a starting
+  point.** A first-draft creative output that reaches immediately for the
+  most familiar structure, palette, or phrasing has not yet had a design
+  decision made about it; it has had the mission's decision deferred to
+  training-data averages. This mirrors IV.3's rule that added complexity
+  earns no credit by default — here, an *unexamined* default earns no credit
+  either, even though nothing was technically added.
+- **Push the model off its default with an external source of variance, not
+  a request for "creativity."** Asking a model to "be random" or "be unique"
+  still produces its most-likely idea of randomness — a mannered sameness
+  one level removed from the original default. Genuine variance has to come
+  from outside the model's own token-prediction loop: a concrete, specific
+  creative reference the mission owner supplies, or a generated artifact
+  (e.g., a random seed) the model is instructed to derive its direction
+  from and never reveal. Either way, the push must happen *before* the
+  first draft, not as a later correction.
+- **An agent cannot objectively evaluate its own creative output — route
+  judgment through a separate critic role, per V.4's single-writer logic
+  applied to review instead of code.** The agent that produced a design is
+  anchored to its own prior choices and rationale; it cannot "zoom out" on
+  itself any better than a self-reviewed PR can catch its own drift. A
+  **Critic Loop** — a separate agent, given a fresh context and only the
+  output artifact (not the implementation, prior rationale, or critique
+  history) — supplies the outside view. This is the same shape as III.8's
+  independent-reviewer requirement for high-risk code changes, instantiated
+  for creative quality instead of correctness.
+- **A critic's rubric must be concrete and bounded, and its stopping
+  condition must be decided before the loop starts** — an open-ended
+  "make this look good" critic never converges and the implementing agent
+  burns budget chasing a moving target, the creative-output version of II.3's
+  two-attempt rule existing to stop unbounded retries. Prefer comparative,
+  falsifiable criteria (rank this against N reference examples; score
+  against a stated, fixed bar) over open aesthetic judgment, and fix the
+  target iteration count going in.
+- **Size the model to the role, not the task.** A stronger, more expensive
+  model earns its cost in the low-frequency, high-leverage critic role; a
+  cheaper model can carry the high-frequency implementation work, provided
+  it's still capable of executing a given direction competently. This is
+  II.1's "money and tokens are a scarce, staged resource" applied to model
+  selection specifically.
+- **Delivery is a subtraction pass, not just a final polish.** A generative
+  model reliably adds decoration, hedging, and elements that don't serve the
+  mission's stated purpose, and rarely removes them unprompted — deleting is
+  a riskier-feeling move than adding, for a model same as for a person. A
+  mission is not done until someone has explicitly asked "what here doesn't
+  need to be here" and removed it. This is IV.3's simplicity guardrail,
+  applied to the artifact instead of the system that produced it.
+- **Maintain a living checklist of this project's own recognizable
+  AI-output patterns** (recurring color/gradient choices, layout structures,
+  copy tics) and review new creative output against it before shipping —
+  without banning the patterns outright, since a blanket ban just pushes the
+  model toward new, equally mannered substitutes. Reach for richer source
+  material (generated imagery, motion) before defaulting to the cheapest
+  code-only approximation when a mission genuinely calls for visual
+  richness — the same "don't settle for the easiest available primitive"
+  logic as the point above, applied to media choice instead of layout.
+- **User-facing copy gets a human editorial pass before ship, full stop.**
+  Generated copy is scaffolding for visualizing structure, not finished
+  product text — treat it exactly the way a designer treats Lorem ipsum.
+  This is a release gate for any mission in scope of this section, not an
+  optional nicety.
+
+Adopt this by copying `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` into
+`docs/design/AI_OUTPUT_DISCIPLINE.md`, and folding a pointer to it into your
+project's `CLAUDE.md`/`AGENTS.md` for any mission with a user-facing creative
+surface — the same wiring pattern III.8 and III.9 use, so an agent
+encounters the discipline before starting the work, not mid-task.
+
 ---
 
 ## Part IV — Agent Evaluation
