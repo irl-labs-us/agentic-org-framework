@@ -2,10 +2,11 @@
 
 **A product-agnostic operating system for a human principal (a "CEO") directing a team of AI agents from strategy through budget through build.**
 
-**Status:** Draft v0.4 — derived from RoleWise's operating model (`docs/coordination/CORE_ORG.md`, `AGENT_OPERATING_CHARTER.md`, `AGENT_EVALUATION_COVENANT.md`, `MISSION_PACKET_TEMPLATE.md`, `DEBUG_PROTOCOL.md`, `STRATEGY.md`) and hardened against the failure modes documented in `docs/coordination/reviews/2026-08-25-memory-architecture-postmortem-and-beta-portfolio.md`.
+**Status:** Draft v0.5 — derived from RoleWise's operating model (`docs/coordination/CORE_ORG.md`, `AGENT_OPERATING_CHARTER.md`, `AGENT_EVALUATION_COVENANT.md`, `MISSION_PACKET_TEMPLATE.md`, `DEBUG_PROTOCOL.md`, `STRATEGY.md`) and hardened against the failure modes documented in `docs/coordination/reviews/2026-08-25-memory-architecture-postmortem-and-beta-portfolio.md`.
 **2026-08-27 update:** added III.8 (Git and integration discipline) and three Part VI guardrails, generalized from RoleWise's `GIT_OPERATIONS_COVENANT.md`, the fresh-staging-branch and local-development-workflow missions, and a same-day consent-boundary fix (`docs/coordination/GIT_WORK_REGISTRY.md`, `docs/coordination/missions/local-development-workflow.md`).
 **2026-08-28 update:** added a III.8 guardrail on the release-path ancestry failure (RoleWise's `codex/release-governance-path` mission) and the accompanying `scripts/create_release_pr.py` helper — the governance checker's strict-ancestry rule broke every release PR after the first because a GitHub release merge leaves `main` with a commit `staging` never gets. Also added a III.8 guardrail on a governance-CI race (RoleWise's `codex/initial-pr-governance-race` mission): the workflow now cancels superseded runs and reads live PR body/head together at execution time instead of trusting the triggering event's stale snapshot.
 **2026-09-02 update:** added III.9 (Customer feedback and happy-path discipline), generalized from RoleWise's customer-feedback harness (`docs/customer-feedback/`) into `templates/customer-feedback/` and `scripts/customer_feedback_harness.py` / `scripts/build_weekly_feedback_review.py`.
+**2026-09-14 update:** added III.11 and `templates/AGENT_GOVERNANCE_TEMPLATE.md`, making policy, decision process, pre-launch assurance, production monitoring, incident reporting, and outcome audits a mandatory operating layer rather than scattered implications.
 **Entry-point agnostic:** works whether you are starting from an idea, a design, or an existing codebase.
 **Scale agnostic:** the same rules apply to a prototype, a beta, or a production system — only the numbers in the budget and gates change.
 **Open questions reserved for the CEO's return are collected at the end, under "Decisions pending your review."**
@@ -150,6 +151,7 @@ A technically attractive capability does not enter the sequence just because it 
 - At most two remediation attempts per blocker, with mandatory escalation after the second.
 - A kill criterion and a recoverable handoff if killed.
 - Why disabling, narrowing, or a manual/concierge process is insufficient — i.e., why this needs to be built by agents at all right now.
+- For any agent that will use non-public data, take or recommend a consequential action, communicate externally, or affect production: the §III.11 governance risk tier, applicable policy/version, required human and independent-review gates, pre-launch evidence, monitoring owner/thresholds, incident route, and safe-disable or rollback.
 
 ### II.6 Weekly Portfolio Review (the CEO/Strategy-Lead ritual that keeps this real)
 
@@ -215,6 +217,8 @@ Every mission — feature program, redesign, debug case, experiment, audit, rese
 - required independent reviewer and gate;
 - start condition, end condition, handoff recipient;
 - dependencies, escalation conditions, authority limits;
+- applicable Agent Governance Charter version, risk tier, human/Assurance gates,
+  and—if production is in scope—monitoring and safe-disable owners;
 - current status (`proposed / ready / active / needs_coordination / blocked / in_review / complete / paused`);
 - its funded phase and everything from Part II.5.
 
@@ -418,6 +422,57 @@ project's `CLAUDE.md`/`AGENTS.md` for any mission with a user-facing creative
 surface — the same wiring pattern III.8 and III.9 use, so an agent
 encounters the discipline before starting the work, not mid-task.
 
+### III.11 Agent governance: policy, process, and monitoring (mandatory before production use)
+
+The controls elsewhere in this framework are necessary but not sufficient if
+they remain scattered across strategy, missions, git, evaluation, and incident
+response. Every adopted framework must therefore maintain one versioned Agent
+Governance Charter, using `templates/AGENT_GOVERNANCE_TEMPLATE.md`, that makes
+three distinct layers explicit:
+
+1. **Policy — what is allowed.** Define acceptable uses, prohibited data and
+   prohibited uses, data minimization and retention boundaries, agent authority,
+   disclosure and provenance rules, and a risk-tiered human-review matrix.
+   Unknown authority defaults to deny and escalate. An agent may propose a
+   policy change but cannot approve its own exception, lower its own risk tier,
+   or waive an independent gate.
+2. **Process — how decisions get made.** Name the accountable executive,
+   Strategy & Portfolio, affected-domain, technical/data, and independent
+   Assurance decision rights. A small organization may have one person in
+   several seats, but the proposer cannot provide their own independent
+   assurance. Record every approve / narrow / defer / reject decision with its
+   evidence, dissent, owner, expiry, and review date. Before first production
+   use or a material change, run a pre-launch gate with adversarial or red-team
+   testing, privacy/security/access checks, human-review and escalation tests,
+   a bounded rollout, stop thresholds, and a tested safe-disable or rollback.
+3. **Monitoring — how production stays safe.** Keep a deployed inventory and
+   versioned baseline; monitor input/data drift, output/behavior drift, access
+   and tool-use anomalies, incidents and near misses, overrides/complaints, and
+   real outcomes. Every signal needs an owner, threshold, cadence, evidence
+   location, and mandatory response. Review it every release and weekly; run an
+   independent outcome audit on a declared monthly or quarterly cadence and
+   after material changes or incidents.
+
+The charter's release gate is fail-closed: a control without an owner,
+threshold, cadence, evidence location, and response is not operational, and a
+launch approval expires when the model, prompt, tools, permissions, data source,
+policy, or material workflow changes. Monitoring must measure user/company
+outcomes and harms, not just uptime or average model accuracy, and must report
+coverage and denominators. Safety, privacy, authority, and user-control failures
+remain non-compensable gates under Part IV; they are never averaged into a
+healthy composite score.
+
+Incidents use Part V's severity, single-writer, evidence/privacy, and escalation
+rules. Critical incidents trigger immediate containment or safe-disable where
+feasible; high-severity incidents block the affected capability until
+independent re-verification. A production incident does not silently become a
+policy exception, and emergency containment does not authorize resumed use.
+
+Adopt this by copying `templates/AGENT_GOVERNANCE_TEMPLATE.md` to
+`docs/governance/AGENT_GOVERNANCE.md`, filling every owner and control field,
+obtaining the named approvals, and adding a pointer to it in the project's
+`AGENTS.md`/`CLAUDE.md`. Every agent in scope reads it before substantive work.
+
 ---
 
 ## Part IV — Agent Evaluation
@@ -536,10 +591,11 @@ These are not generic best practices — they are specific corrections to a docu
 2. **Stand up the two roles** — CEO and Strategy & Portfolio Lead — even if the same human holds both.
 3. **Name the Build lanes you actually need** (at minimum Product+Delivery and an independent Assurance function; add Strategic Discovery only when you have a named future decision to research).
 4. **Name your customer-facing value-stream stages**, if the product has direct end users, and assign one accountable owner for the whole journey. If so, also adopt §III.9's customer-feedback and happy-path discipline (`templates/customer-feedback/`) — an internal-only tool can skip this.
-5. **Write the first Mission Packet** (Appendix D) for the very first piece of work, however small, and enforce Part II's economic allocation section on it — including a prototype's very first "hello world" mission. The discipline should exist before the first real dollar/token is spent, not after the first overrun.
-6. **Schedule the Weekly Portfolio Review** (Appendix A) from week one, even with one mission in it.
-7. **Adopt the coordination handshake and evaluation acknowledgement** (Appendix E) as the literal words every agent states before starting work.
-8. **Revisit Part I only when strategy changes; run Part II every week; treat Parts III–VI as the constitution every agent reads before every assignment.**
+5. **Adopt and approve the Agent Governance Charter** (§III.11): acceptable use, prohibited data/uses, required human review, decision board and escalation, pre-launch/red-team gates, monitoring owners/thresholds/cadence, incident reporting, and outcome audits. Add it to agent startup instructions. No production use proceeds with required fields still `TBD`.
+6. **Write the first Mission Packet** (Appendix D) for the very first piece of work, however small, and enforce Part II's economic allocation section on it — including a prototype's very first "hello world" mission. The discipline should exist before the first real dollar/token is spent, not after the first overrun.
+7. **Schedule the Weekly Portfolio Review** (Appendix A) from week one, even with one mission in it; include the governance-monitoring review for any deployed agent.
+8. **Adopt the coordination handshake and evaluation acknowledgement** (Appendix E) as the literal words every agent states before starting work.
+9. **Revisit Part I only when strategy changes; run Part II every week; treat Parts III–VI as the constitution every agent reads before every assignment.**
 
 ---
 
@@ -559,6 +615,9 @@ Available allocation before review / Committed unspent / Uncommitted after revie
 Additions this week and why simpler options were insufficient / continuing burden / work still unreleased or unused / evidence needed before more funding / work to simplify or archive
 ## Decisions
 | Decision | Owner | Allocation authorized | End condition | Work displaced | Review date |
+
+## Agent-governance monitoring (for every deployed agent)
+Inventory/version changes / expired approvals or exceptions / drift thresholds crossed / incidents and near misses / overrides, complaints, and appeals / outcome-audit findings / safe-disable or corrective decisions
 ```
 
 Every disposition is one of: `continue / narrow / disable / handoff / stop / remain ready-unfunded`. Technical acceptance or QA passage never by itself authorizes the next phase.
@@ -611,6 +670,10 @@ Failing gate / attempt 1 / attempt 2 / escalation recipient / escalation packet 
 ## Authority
 May decide / may recommend / must escalate
 
+## Agent governance
+Intended use + risk tier / approved and prohibited data / human-review gate / policy owner
+Pre-launch and red-team evidence / monitoring signals + thresholds + owners / rollback or safe-disable / incident route
+
 ## Team dependencies
 Relevant teammates / registered contacts / required coordination / writer scope / reviewer + gate
 
@@ -625,7 +688,7 @@ Recipient / format / decision requested / evaluation self-check / allocation sel
 
 **Coordination handshake (every agent, before substantive work):**
 
-> My team name is **[name]**, and my role is **[role]** in **[lane/stage]**. I own **[assignment]** as **[standing / mission overlay]**. This supports the strategy by **[connection]**. **[Accountable destination owner]** will accept and use the result. My work depends on or may affect **[work/owners]**. I will coordinate directly with registered owners about **[topics]**, route ownership/scope/strategy conflicts through the Strategy Lead, and escalate proposed strategy changes rather than adopting them. I understand my work is evaluated, and I will optimize first for strategy alignment, authorized goal completion, evidence, safety, quality, and low avoidable correction burden; then for efficiency. I will remain within the funded phase and allocation, count delegation and retries against the same budget, obey the circuit breakers, and stop with an escalation packet before a third attempt on the same blocker. I will prefer the smallest sufficient solution and justify any added complexity. I will not hide problems or avoid required review to improve a metric.
+> My team name is **[name]**, and my role is **[role]** in **[lane/stage]**. I own **[assignment]** as **[standing / mission overlay]**. This supports the strategy by **[connection]**. **[Accountable destination owner]** will accept and use the result. My work depends on or may affect **[work/owners]**. I will coordinate directly with registered owners about **[topics]**, route ownership/scope/strategy conflicts through the Strategy Lead, and escalate proposed strategy changes rather than adopting them. I have read the current Agent Governance Charter; this work is risk tier **[tier]**, its required gates are **[gates]**, and its escalation owner is **[owner]**. I understand my work is evaluated, and I will optimize first for strategy alignment, authorized goal completion, evidence, safety, quality, and low avoidable correction burden; then for efficiency. I will remain within the funded phase and allocation, count delegation and retries against the same budget, obey the circuit breakers, and stop with an escalation packet before a third attempt on the same blocker. I will prefer the smallest sufficient solution and justify any added complexity. I will not hide problems or avoid required review to improve a metric.
 
 (This folds Part IV.5's evaluation acknowledgement into the same statement — one contract, spoken once per assignment.)
 

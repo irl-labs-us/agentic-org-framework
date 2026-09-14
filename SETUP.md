@@ -151,21 +151,70 @@ If yes:
 4. **Wire it into the agent convention file.** Add a one-line pointer to `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` in the project's `AGENTS.md`/`CLAUDE.md` (or equivalent), the same way this repo's own `AGENTS.md`/`CLAUDE.md` point at `SETUP.md` — so every agent auto-loads it before touching a customer-facing surface, not only when someone remembers to mention it.
 5. **Pick a `pseudonym_namespace`.** A short, permanent, product-specific string (e.g. the product's slug) — tell the user this is a one-way door: changing it later re-pseudonymizes every existing feedback record's `reporter_ref` and breaks continuity with prior weekly reviews. Record it as the default in whatever wrapper script or CI job will call `build_weekly_feedback_review.py`.
 6. **Ask about product-specific private-content fields.** Does this product handle anything the generic safety baseline wouldn't already catch (a resume, a health record, a financial document)? If so, note it as an `extra_forbidden_fragments` list to pass to the harness — don't guess; leave it `TBD` if the user is unsure.
-7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 7's first mission packet proves the rest of the framework.
+7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 8's first mission packet proves the rest of the framework.
 
 ---
 
-## Section 7 — First mission packet (optional, recommended)
+## Section 7 — Agent governance (`FRAMEWORK.md` §III.11, mandatory before production)
+
+Explain that this step turns three separate concerns into an operating system:
+**policy** defines what agents may do, **process** defines who decides and how,
+and **monitoring** detects when production behavior or outcomes depart from the
+approved baseline. Do not treat an existing security document or an informal
+weekly meeting as a substitute unless it answers every required field below.
+
+Work through one layer at a time; do not ask all questions at once.
+
+1. **Policy.** Ask for the intended agent uses, data it may access, data or uses
+   that must be prohibited, retention/deletion boundaries, and actions that
+   require a human. Classify low, medium, high, and prohibited uses. Push back
+   on “use judgment,” “as needed,” or an exception without an owner and expiry.
+2. **Process.** Name the accountable executive, Strategy & Portfolio,
+   affected-domain, technical/data, and independent Assurance owners. Ask who
+   may approve each risk tier, who may block launch, what escalates immediately,
+   and the Governance Board cadence. One person may hold several seats at small
+   scale, but the proposer cannot provide their own independent assurance.
+3. **Pre-launch assurance.** Define the product-specific red-team or adversarial
+   cases, privacy/security/access checks, human-review test, go/no-go owner,
+   bounded rollout, stop thresholds, rollback/safe-disable owner, and which
+   changes expire the approval. No production launch is approved with these
+   required controls left `TBD`.
+4. **Monitoring.** For deployed inventory/version changes, input/data drift,
+   output/behavior drift, access/tool anomalies, incidents/near misses, and
+   outcome audits, ask for the signal, baseline/threshold, cadence, owner,
+   evidence location, and mandatory response. Monitoring must cover user or
+   company outcomes—not only uptime or average accuracy—and must report
+   coverage and denominators.
+5. **Incident and audit rhythm.** Set incident acknowledgement/escalation times,
+   wire severity to `FRAMEWORK.md` Part V, and choose the independent outcome
+   audit cadence (monthly or quarterly). Add governance monitoring to the Weekly
+   Portfolio Review and require re-gating after material changes or incidents.
+6. **Write and wire the charter.** Copy
+   `templates/AGENT_GOVERNANCE_TEMPLATE.md` to
+   `docs/governance/AGENT_GOVERNANCE.md`, replace `{Your Product}`, `{CEO}`,
+   `{Strategy & Portfolio Lead}`, and `{Assurance Owner}`, then fill the policy,
+   decision, control, and version tables. Add a one-line pointer to the charter
+   in `AGENTS.md`/`CLAUDE.md` so every in-scope agent reads it before substantive
+   work.
+7. **Approval state.** Mark the charter `Proposed` until the CEO and independent
+   Assurance owner accept their respective gates. Record any open fields and
+   state plainly that production use is blocked until all required fields are
+   owned and approved; prototype work may continue only inside an explicitly
+   documented non-production boundary.
+
+---
+
+## Section 8 — First mission packet (optional, recommended)
 
 Offer to draft the very first Mission Packet (`docs/coordination/MISSION_PACKET_TEMPLATE.md`, condensed version in `FRAMEWORK.md` Appendix D) for whatever the user wants to build first. This is the fastest way to prove the whole framework works end to end rather than leaving it as an unused constitution. Ask what the first piece of work is, and fill in the template live with the user — including the git lease fields from Section 5, now that the ledger exists.
 
 ---
 
-## Section 8 — Handoff summary
+## Section 9 — Handoff summary
 
 Close with:
 
 1. A list of every file you created or edited, with its path.
 2. Anything left `TBD` and why.
-3. The Day-0 checklist from `FRAMEWORK.md` Part VII, marked off against what this session actually completed — call out anything still open (e.g. "Weekly Portfolio Review not yet on a calendar" or "Strategic Discovery lane intentionally deferred").
+3. The Day-0 checklist from `FRAMEWORK.md` Part VII, marked off against what this session actually completed — call out anything still open (e.g. "Weekly Portfolio Review not yet on a calendar," "Strategic Discovery lane intentionally deferred," or "production blocked pending Agent Governance Charter approval").
 4. A one-line reminder: *this is a first draft — Part VI's guardrails exist because even a good-faith setup can drift; revisit Part I only when strategy changes, but run Part II's rhythm every week starting now.*

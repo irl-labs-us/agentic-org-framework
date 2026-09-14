@@ -24,6 +24,7 @@ flowchart TB
     GIT["Part III.8 — Git & Integration Discipline<br/>Solo- or multi-operator mode;<br/>single-use branches, PR governance CI<br/>always on, lease ledger only if multi"]
     FEEDBACK["Part III.9 — Customer Feedback & Happy Paths<br/>Normalized intake, happy-path registry,<br/>weekly review, release gates"]
     DESIGN["Part III.10 — AI-Generated Output Discipline<br/>Entropy seeding, critic loop,<br/>subtraction pass, human copy edit"]
+    GOVERNANCE["Part III.11 — Agent Governance<br/>Policy, decision process, pre-launch gates,<br/>production monitoring and outcome audits"]
     EVAL["Part IV — Agent Evaluation<br/>Tier 1 (alignment, safety, quality)<br/>before Tier 2 (efficiency)"]
     DEBUG["Part V — Debugging & Escalation<br/>Severity, single-writer rule,<br/>two-attempt stop"]
     GUARDRAILS["Part VI — Postmortem-Derived Guardrails<br/>Read before funding anything<br/>'foundational' or 'enabling'"]
@@ -33,10 +34,12 @@ flowchart TB
     ORG -->|"any mission touching code follows"| GIT
     ORG -->|"any mission touching a customer surface follows"| FEEDBACK
     ORG -->|"any mission with a user-facing creative surface follows"| DESIGN
+    ORG -->|"every production agent is governed by"| GOVERNANCE
     ORG -->|"every agent is judged by"| EVAL
     ORG -->|"any blocker follows"| DEBUG
     GIT -->|"is one instance of the single-writer rule in"| DEBUG
     FEEDBACK -->|"material failures become cases in"| DEBUG
+    GOVERNANCE -->|"incidents and threshold breaches follow"| DEBUG
     EVAL -.->|"protects against gaming"| GUARDRAILS
     DEBUG -.->|"an unresolved case can become"| GUARDRAILS
     GUARDRAILS -.->|"corrects"| STRATEGY
@@ -51,7 +54,7 @@ Part III.8 itself forks once at onboarding: **solo-operator** (one human directi
 
 | Path | What it's for |
 |---|---|
-| `FRAMEWORK.md` | The framework itself: strategy, budget/circuit-breakers, org structure, git discipline, agent evaluation, debugging/escalation, postmortem-derived guardrails, and condensed appendix templates. Read this first. |
+| `FRAMEWORK.md` | The framework itself: strategy, budget/circuit-breakers, org structure, git discipline, agent governance, evaluation, debugging/escalation, postmortem-derived guardrails, and condensed appendix templates. Read this first. |
 | `SETUP.md` | Agent-agnostic interview playbook — the fastest way to adopt this framework. See Quick start above. |
 | `templates/MISSION_PACKET_TEMPLATE.md` | Full mission packet to copy for every new assignment (condensed version is in `FRAMEWORK.md` Appendix D). |
 | `templates/GIT_OPERATIONS_COVENANT.md` | The full git governance contract referenced by `FRAMEWORK.md` §III.8 — merge authority, worktree leases, single-use branches, PR metadata contract, the "Solo-operator mode" section for single-operator repos, and "Keeping the Changed-file manifest from going stale" covering the `--body-file` preflight and the two optional manifest-sync automations below. |
@@ -67,6 +70,7 @@ Part III.8 itself forks once at onboarding: **solo-operator** (one human directi
 | `.github/workflows/release-pr-sync.yml` / `feature-pr-manifest-sync.yml` | Example workflows wiring `create_release_pr.py --sync-mechanical` and `sync_pr_manifest.py` to `push` events on `staging` and feature branches respectively — the two optional manifest-staleness automations above. |
 | `templates/customer-feedback/` | Optional §III.9 add-on for products with direct end users: normalized feedback intake, happy-path registry, weekly-review templates, and the Build-agent instructions that wire them into every customer-facing change. See that directory's own README. |
 | `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` | Optional §III.10 add-on for any mission with a user-facing creative surface (UI, visual design, product copy): rationale, entropy-seeding/critic-loop prompt skeletons, and a delivery checklist (subtraction pass, project-specific AI-tells list, human copy edit). |
+| `templates/AGENT_GOVERNANCE_TEMPLATE.md` | Mandatory §III.11 charter for any production agent: acceptable and prohibited use, prohibited data, risk-tiered human review, Governance Board and escalation, pre-launch/red-team gates, drift and incident monitoring, and independent outcome audits. |
 | `scripts/customer_feedback_harness.py` | Privacy-safe feedback normalization and deterministic weekly-review rendering behind §III.9. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
 | `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
 
@@ -77,14 +81,15 @@ If you'd rather not run the interview, `SETUP.md`'s sections map directly onto t
 1. Click **Use this template** → **Create a new repository** (or copy these files into an existing repo).
 2. Fill in Part I's Strategy Constitution (`FRAMEWORK.md` §I.3) and save it as `docs/strategy/STRATEGY.md`. Name your two leadership roles (§III.2) and adapt the value-stream stages in §III.4 to your product.
 3. **Decide solo- or multi-operator** (§III.8): is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you? If not, it's solo-operator mode; skip step 4 and everywhere below marked multi-operator only. If yes, continue as written.
-4. Move `templates/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md` (multi-operator only), `MISSION_PACKET_TEMPLATE.md`, and `SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` into `docs/coordination/`. Replace `{CEO}`, `{Strategy & Portfolio Lead}`, and `{Your Product}` with real names throughout.
+4. Move `templates/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md` (multi-operator only), `MISSION_PACKET_TEMPLATE.md`, and `SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` into `docs/coordination/`. Copy `templates/AGENT_GOVERNANCE_TEMPLATE.md` to `docs/governance/AGENT_GOVERNANCE.md`. Replace `{CEO}`, `{Strategy & Portfolio Lead}`, `{Assurance Owner}`, and `{Your Product}` with real names throughout.
 5. **Multi-operator only:** create a pinned GitHub issue to serve as your live Git-work lease ledger (title it "Git-Work Lease Ledger"; see `SETUP.md` §5 for the exact starter body). Replace the `<org>/<repo>/issues/<lease-ledger-issue-number>` placeholders in `docs/coordination/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`) with the real issue URL. **Solo-operator:** instead set `SOLO_MODE = True` in `scripts/check_git_governance.py` and always pass `--solo-mode` to `scripts/create_release_pr.py`; there is no ledger issue to create.
 6. Set your default integration branch/remote names if they differ from `staging`/`main`/`origin` — update the defaults in `scripts/check_pr_readiness.py`, `scripts/create_feature_worktree.py`, and `scripts/create_release_pr.py`.
 7. `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are — GitHub requires that location.
 8. If the product has direct end users, adopt §III.9: copy `templates/customer-feedback/` into `docs/customer-feedback/` per that directory's README, replacing `{Your Product}` and `{CEO}` throughout, and add a pointer to `BUILD_AGENT_INSTRUCTIONS.md` in your `AGENTS.md`/`CLAUDE.md`. Skip this for an internal-only tool.
 9. If any mission has a user-facing creative surface (UI, visual design, product copy), adopt §III.10: copy `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` into `docs/design/AI_OUTPUT_DISCIPLINE.md` and add a pointer to it in `AGENTS.md`/`CLAUDE.md`. Skip this for backend/infra-only products.
-10. **Optional, once git activity picks up:** if this project expects enough concurrent branches/release-PR lifetime that the Changed-file manifest will go stale often (not just occasionally), also move `.github/workflows/release-pr-sync.yml` and `.github/workflows/feature-pr-manifest-sync.yml` into `.github/workflows/`, alongside `scripts/sync_pr_manifest.py`. See `GIT_OPERATIONS_COVENANT.md`'s "Keeping the Changed-file manifest from going stale" section.
-11. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
+10. Complete and approve the §III.11 Agent Governance Charter before production use. Fill every policy, decision-right, pre-launch gate, monitoring, incident, and outcome-audit field; add a pointer to it in your `AGENTS.md`/`CLAUDE.md`.
+11. **Optional, once git activity picks up:** if this project expects enough concurrent branches/release-PR lifetime that the Changed-file manifest will go stale often (not just occasionally), also move `.github/workflows/release-pr-sync.yml` and `.github/workflows/feature-pr-manifest-sync.yml` into `.github/workflows/`, alongside `scripts/sync_pr_manifest.py`. See `GIT_OPERATIONS_COVENANT.md`'s "Keeping the Changed-file manifest from going stale" section.
+12. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
 
 **Note on the release path:** `main` normally diverges from a persistent `staging` branch after every GitHub release merge (the release merge commit only exists on `main`), so a naive "base must be an ancestor of head" ancestry check will fail on the *second* release PR, not the first — this is the failure mode `scripts/check_git_governance.py` and `scripts/create_release_pr.py` are built to avoid. If you're adopting this checker on a repo where `main`/`staging` have already diverged by more than one prior release, you'll need the one-time bootstrap noted in `templates/GIT_OPERATIONS_COVENANT.md`'s release contract before the first governed release PR can pass.
 
