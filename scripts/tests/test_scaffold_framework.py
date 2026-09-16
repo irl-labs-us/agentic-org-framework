@@ -141,6 +141,13 @@ def test_multi_profile_retains_lease_contract(tmp_path: Path) -> None:
     assert "https://github.com/acme/widget/issues/42#issuecomment-<digits>" in covenant
 
 
+def test_governance_workflow_defers_merge_validation_until_ready_for_review() -> None:
+    workflow = (SOURCE / ".github/workflows/git-governance.yml").read_text()
+
+    assert "ready_for_review" in workflow
+    assert "github.event.pull_request.draft == false" in workflow
+
+
 def test_scaffold_refuses_to_overwrite_human_edit(tmp_path: Path) -> None:
     write_config(tmp_path)
     install(tmp_path)
