@@ -116,6 +116,30 @@ def test_lightweight_profile_installs_fewer_files_and_short_mission(tmp_path: Pa
     assert b"LIGHTWEIGHT_MISSION_TEMPLATE.md" in light_files["AGENTS.md"]
 
 
+@pytest.mark.parametrize("profile", ["lightweight", "solo"])
+def test_non_multi_profiles_render_without_lease_contract(tmp_path: Path, profile: str) -> None:
+    write_config(tmp_path, profile=profile)
+    files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
+
+    pull_request_template = files[".github/pull_request_template.md"].decode()
+    covenant = files["docs/coordination/GIT_OPERATIONS_COVENANT.md"].decode()
+    assert "\n## Git-work lease\n" not in pull_request_template
+    assert "Git-work lease: N/A — solo-operator mode" in pull_request_template
+    assert "N/A (solo-operator mode)#issuecomment" not in covenant
+    assert "](N/A (solo-operator mode))" not in covenant
+    assert "`## Git-work lease` (multi-operator mode only)" in covenant
+
+
+def test_multi_profile_retains_lease_contract(tmp_path: Path) -> None:
+    write_config(tmp_path, profile="multi")
+    files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
+
+    pull_request_template = files[".github/pull_request_template.md"].decode()
+    covenant = files["docs/coordination/GIT_OPERATIONS_COVENANT.md"].decode()
+    assert "\n## Git-work lease\n" in pull_request_template
+    assert "https://github.com/acme/widget/issues/42#issuecomment-<digits>" in covenant
+
+
 def test_scaffold_refuses_to_overwrite_human_edit(tmp_path: Path) -> None:
     write_config(tmp_path)
     install(tmp_path)

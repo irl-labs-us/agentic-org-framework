@@ -87,6 +87,47 @@ def _render(text: str, config: FrameworkConfig, *, replace_branches: bool = Fals
     return text
 
 
+def _render_profile(text: str, destination: str, config: FrameworkConfig) -> str:
+    """Remove multi-operator-only instructions from non-multi generated files."""
+
+    if config.profile == "multi":
+        return text
+    if destination == ".github/pull_request_template.md":
+        text = re.sub(
+            r"- Git-work lease ID:\n- Live-ledger lease grant: .*\n",
+            "- Git-work lease: N/A — solo-operator mode\n",
+            text,
+            count=1,
+        )
+        text = re.sub(
+            r"\n## Git-work lease\n.*?(?=\n## Changed-file manifest\n)",
+            "\n",
+            text,
+            count=1,
+            flags=re.DOTALL,
+        )
+    elif destination == "docs/coordination/GIT_OPERATIONS_COVENANT.md":
+        text = text.replace(
+            "[live Git-work control ledger](N/A (solo-operator mode))",
+            "live Git-work control ledger (not used in solo-operator mode)",
+        )
+        text = text.replace(
+            "- `## Git-work lease`\n",
+            "- `## Git-work lease` (multi-operator mode only)\n",
+        )
+        text = text.replace(
+            "The `## Git-work lease` section must itself contain both a lease ID matching "
+            "`GIT-YYYY-NNN` and the exact numeric `LEASE GRANTED` comment URL matching "
+            "`N/A (solo-operator mode)#issuecomment-<digits>`. The issue root URL is not "
+            "sufficient. A lease ID written only under `## Branch integration`, in a PR title, "
+            "or in a comment does not satisfy this contract.",
+            "The `## Git-work lease` section is omitted in solo-operator mode. The "
+            "`## Branch integration` section records `Git-work lease: N/A — solo-operator "
+            "mode` instead.",
+        )
+    return text
+
+
 def _startup(config: FrameworkConfig) -> str:
     lines = [
         "# Agent startup",
@@ -235,6 +276,8 @@ def desired_files(source: Path, config: FrameworkConfig) -> dict[str, bytes]:
             if Path(destination).suffix == ".py"
             else _render(raw, config, replace_branches=replace_branches)
         )
+        if Path(destination).suffix != ".py":
+            rendered = _render_profile(rendered, destination, config)
         result[destination] = rendered.encode()
     return result
 
