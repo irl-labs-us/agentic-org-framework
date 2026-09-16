@@ -145,6 +145,7 @@ def test_governance_workflow_defers_merge_validation_until_ready_for_review() ->
     workflow = (SOURCE / ".github/workflows/git-governance.yml").read_text()
 
     assert "ready_for_review" in workflow
+    assert "github.event.action == 'ready_for_review'" in workflow
     assert "github.event.pull_request.draft == false" in workflow
 
 
