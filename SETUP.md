@@ -151,11 +151,24 @@ If yes:
 4. **Wire it into the agent convention file.** Add a one-line pointer to `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` in the project's `AGENTS.md`/`CLAUDE.md` (or equivalent), the same way this repo's own `AGENTS.md`/`CLAUDE.md` point at `SETUP.md` — so every agent auto-loads it before touching a customer-facing surface, not only when someone remembers to mention it.
 5. **Pick a `pseudonym_namespace`.** A short, permanent, product-specific string (e.g. the product's slug) — tell the user this is a one-way door: changing it later re-pseudonymizes every existing feedback record's `reporter_ref` and breaks continuity with prior weekly reviews. Record it as the default in whatever wrapper script or CI job will call `build_weekly_feedback_review.py`.
 6. **Ask about product-specific private-content fields.** Does this product handle anything the generic safety baseline wouldn't already catch (a resume, a health record, a financial document)? If so, note it as an `extra_forbidden_fragments` list to pass to the harness — don't guess; leave it `TBD` if the user is unsure.
-7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 8's first mission packet proves the rest of the framework.
+7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 9's first mission packet proves the rest of the framework.
 
 ---
 
-## Section 7 — Agent governance (`FRAMEWORK.md` §III.11, mandatory before production)
+## Section 7 — AI-generated output discipline (`FRAMEWORK.md` §III.10, optional)
+
+Ask first: **does any mission in view have a user-facing creative surface** — UI, visual design, data visualization, or product copy a human audience will actually see — rather than being purely backend/infra/internal-data-plumbing work? If nothing on the horizon has one, say so explicitly and skip this whole section — don't force it; it can always be adopted later when a mission like that shows up.
+
+If yes:
+
+1. **Copy the template into place**, if you have file access: `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` → `docs/design/AI_OUTPUT_DISCIPLINE.md`. If you don't have file access, print the exact copy command for the user to run themselves.
+2. **Leave the tells checklist empty.** Unlike Section 6's templates, this one has no placeholders to substitute — it's meant to start blank and fill in from real review sessions on this project's actual output, not be seeded generically now.
+3. **Wire it into the agent convention file.** Add a one-line pointer to `docs/design/AI_OUTPUT_DISCIPLINE.md` in the project's `AGENTS.md`/`CLAUDE.md` (or equivalent) — the same wiring pattern as Section 6 step 4 — so an agent picks up the discipline before starting a mission with a creative surface, not mid-task.
+4. **Reference it from future mission packets.** Any Mission Packet (§III.5) whose scope includes UI, visual design, or user-facing copy should point at `FRAMEWORK.md` §III.10 and `docs/design/AI_OUTPUT_DISCIPLINE.md` directly, the same way Section 9 will for the first one.
+
+---
+
+## Section 8 — Agent governance (`FRAMEWORK.md` §III.11, mandatory before production)
 
 Explain that this step turns three separate concerns into an operating system:
 **policy** defines what agents may do, **process** defines who decides and how,
@@ -204,13 +217,13 @@ Work through one layer at a time; do not ask all questions at once.
 
 ---
 
-## Section 8 — First mission packet (optional, recommended)
+## Section 9 — First mission packet (optional, recommended)
 
-Offer to draft the very first Mission Packet (`docs/coordination/MISSION_PACKET_TEMPLATE.md`, condensed version in `FRAMEWORK.md` Appendix D) for whatever the user wants to build first. This is the fastest way to prove the whole framework works end to end rather than leaving it as an unused constitution. Ask what the first piece of work is, and fill in the template live with the user — including the git lease fields from Section 5, now that the ledger exists.
+Offer to draft the very first Mission Packet (`docs/coordination/MISSION_PACKET_TEMPLATE.md`, condensed version in `FRAMEWORK.md` Appendix D) for whatever the user wants to build first. This is the fastest way to prove the whole framework works end to end rather than leaving it as an unused constitution. Ask what the first piece of work is, and fill in the template live with the user — including the git lease fields from Section 5, now that the ledger exists, and a pointer to Section 7's `docs/design/AI_OUTPUT_DISCIPLINE.md` if this mission has a user-facing creative surface.
 
 ---
 
-## Section 9 — Handoff summary
+## Section 10 — Handoff summary
 
 Close with:
 
