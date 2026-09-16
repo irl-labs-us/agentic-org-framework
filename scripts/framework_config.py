@@ -11,6 +11,7 @@ from typing import Any, Mapping
 CONFIG_FILENAME = ".agentic-org.json"
 CONFIG_SCHEMA_VERSION = 1
 PROFILES = {"lightweight", "solo", "multi"}
+OPERATOR_MODES = {"single-human", "multi-human"}
 DEFAULT_LEDGER_URL = "https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>"
 DEFAULT_HIGH_RISK_PATHS = (
     ".github/",
@@ -51,6 +52,7 @@ class LeadershipConfig:
 
 @dataclass(frozen=True)
 class GitGovernanceConfig:
+    operator_mode: str
     ledger_url: str | None
     high_risk_paths: tuple[str, ...]
     forbidden_paths: tuple[str, ...]
@@ -77,7 +79,11 @@ class FrameworkConfig:
 
     @property
     def solo_mode(self) -> bool:
-        return self.profile != "multi"
+        return self.git_governance.operator_mode == "single-human"
+
+    @property
+    def multi_human_mode(self) -> bool:
+        return self.git_governance.operator_mode == "multi-human"
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
@@ -104,6 +110,7 @@ def default_config() -> FrameworkConfig:
             assurance_owner="{Assurance Owner}",
         ),
         git_governance=GitGovernanceConfig(
+            operator_mode="multi-human",
             ledger_url=DEFAULT_LEDGER_URL,
             high_risk_paths=DEFAULT_HIGH_RISK_PATHS,
             forbidden_paths=DEFAULT_FORBIDDEN_PATHS,
@@ -214,20 +221,38 @@ def parse_framework_config(raw: Any, *, source_path: Path | None = None) -> Fram
     )
 
     governance_raw = _object(root.get("git_governance"), "git_governance")
-    _keys(governance_raw, {"ledger_url", "high_risk_paths", "forbidden_paths"}, "git_governance")
+    _keys(
+        governance_raw,
+        {"operator_mode", "ledger_url", "high_risk_paths", "forbidden_paths"},
+        "git_governance",
+    )
+    operator_value = governance_raw.get("operator_mode")
+    operator_mode = (
+        _string(operator_value, "git_governance.operator_mode")
+        if operator_value is not None
+        else ("multi-human" if profile == "multi" else "single-human")
+    )
+    if operator_mode not in OPERATOR_MODES:
+        raise FrameworkConfigError(
+            "git_governance.operator_mode must be one of: "
+            + ", ".join(sorted(OPERATOR_MODES))
+        )
     ledger_value = governance_raw.get("ledger_url")
     ledger_url = None if ledger_value is None else _string(ledger_value, "git_governance.ledger_url")
-    if profile == "multi":
+    if operator_mode == "multi-human":
         if ledger_url is None or not re.fullmatch(
             r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/\d+",
             ledger_url,
         ):
             raise FrameworkConfigError(
-                "multi profile requires git_governance.ledger_url to be a numeric GitHub issue URL"
+                "multi-human operator mode requires git_governance.ledger_url to be a numeric GitHub issue URL"
             )
     elif ledger_url is not None:
-        raise FrameworkConfigError(f"{profile} profile must set git_governance.ledger_url to null")
+        raise FrameworkConfigError(
+            "single-human operator mode must set git_governance.ledger_url to null"
+        )
     governance = GitGovernanceConfig(
+        operator_mode=operator_mode,
         ledger_url=ledger_url,
         high_risk_paths=_paths(
             governance_raw.get("high_risk_paths", list(DEFAULT_HIGH_RISK_PATHS))
@@ -269,6 +294,10 @@ def parse_framework_config(raw: Any, *, source_path: Path | None = None) -> Fram
     )
     if not modules.agent_governance:
         raise FrameworkConfigError("modules.agent_governance must remain true")
+    if operator_mode == "single-human" and modules.manifest_sync:
+        raise FrameworkConfigError(
+            "single-human operator mode must set modules.manifest_sync to false"
+        )
 
     return FrameworkConfig(
         schema_version=CONFIG_SCHEMA_VERSION,

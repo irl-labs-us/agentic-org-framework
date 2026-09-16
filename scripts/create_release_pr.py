@@ -161,7 +161,7 @@ def render_release_mechanical_sections(
     else:
         if lease_id is None or grant_url is None:
             raise ReleasePreparationError(
-                "multi-operator release rendering requires a lease ID and live-ledger grant URL"
+                "multi-human release rendering requires a lease ID and live-ledger grant URL"
             )
         validate_release_metadata(lease_id, grant_url, ledger_url=ledger_url)
         branch_integration_lease = (
@@ -400,7 +400,7 @@ def sync_release_pr_mechanical_sections(
 ) -> str | None:
     """
     Refresh only the mechanically-derived sections (Branch integration,
-    Changed-file manifest -- and, in multi-operator mode, Git-work lease)
+    Changed-file manifest -- and, in multi-human mode, Git-work lease)
     of the single open integration-to-release PR, preserving Outcome,
     Coordination and scope, and Evidence exactly as a human last wrote
     them. Intended for CI to run on every push to the integration branch, so the
@@ -476,7 +476,7 @@ def sync_release_pr_mechanical_sections(
             result = f"refreshed mechanical sections of PR #{pr_number}"
         dispatch = dispatch_governance_validation(
             repo_slug=repo_slug,
-            head_branch=head_branch,
+            pr_number=pr_number,
             head_sha=context.head_sha,
         )
         return f"{result}; {dispatch}"
@@ -484,7 +484,7 @@ def sync_release_pr_mechanical_sections(
 
 
 def dispatch_governance_validation(
-    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+    *, repo_slug: str, pr_number: int, head_sha: str, workflow_file: str = "git-governance.yml"
 ) -> str:
     """Dispatch the trusted pull-request workflow for this exact head.
 
@@ -493,13 +493,14 @@ def dispatch_governance_validation(
     pending state. Candidate-branch workflow code is never dispatched.
     """
     raw = run(
-        "gh", "run", "list", "--repo", repo_slug, "--branch", head_branch,
-        "--workflow", workflow_file, "--json", "databaseId,headSha,conclusion,status", "--limit", "10",
+        "gh", "api",
+        f"repos/{repo_slug}/actions/workflows/{workflow_file}/runs?event=pull_request_target&per_page=100",
     )
-    match = next((r for r in json.loads(raw) if r["headSha"] == head_sha), None)
+    runs = json.loads(raw).get("workflow_runs", [])
+    match = _exact_pr_run(runs, pr_number=pr_number, head_sha=head_sha)
     if match is None:
         return f"governance validation pending for {head_sha[:8]}: exact-head run not visible yet"
-    run_id = match["databaseId"]
+    run_id = match["id"]
     if match["status"] != "completed":
         return f"governance validation pending in run {run_id} for {head_sha[:8]}"
     try:
@@ -511,14 +512,29 @@ def dispatch_governance_validation(
     return f"dispatched trusted governance run {run_id} for {head_sha[:8]}; result pending"
 
 
+def _exact_pr_run(runs: list[dict], *, pr_number: int, head_sha: str) -> dict | None:
+    return next(
+        (
+            item
+            for item in runs
+            if any(
+                pr.get("number") == pr_number
+                and (pr.get("head") or {}).get("sha") == head_sha
+                for pr in item.get("pull_requests", [])
+            )
+        ),
+        None,
+    )
+
+
 def rerun_stale_check(
-    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+    *, repo_slug: str, pr_number: int, head_sha: str, workflow_file: str = "git-governance.yml"
 ) -> str:
     """Compatibility alias for deterministic exact-head dispatch."""
 
     return dispatch_governance_validation(
         repo_slug=repo_slug,
-        head_branch=head_branch,
+        pr_number=pr_number,
         head_sha=head_sha,
         workflow_file=workflow_file,
     )
@@ -713,7 +729,7 @@ def main() -> None:
             not args.lease_id or not args.grant_url
         ):
             raise ReleasePreparationError(
-                "--lease-id and --grant-url are required in multi-operator mode"
+                "--lease-id and --grant-url are required in multi-human mode"
             )
         if not args.sync_mechanical:
             required = {

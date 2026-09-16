@@ -35,12 +35,24 @@ def test_non_multi_profiles_accept_no_ledger(profile):
 def test_multi_profile_requires_numeric_ledger_issue():
     raw = example()
     raw["profile"] = "multi"
+    raw["git_governance"]["operator_mode"] = "multi-human"
     raw["git_governance"]["ledger_url"] = "https://github.com/acme/product/issues/17"
 
     config = parse_framework_config(raw)
 
     assert config.solo_mode is False
     assert config.git_governance.ledger_url.endswith("/17")
+
+
+def test_multi_agent_profile_can_use_single_human_operation():
+    raw = example()
+    raw["profile"] = "multi"
+
+    config = parse_framework_config(raw)
+
+    assert config.profile == "multi"
+    assert config.solo_mode is True
+    assert config.git_governance.operator_mode == "single-human"
 
 
 def test_unknown_fields_fail_closed():
@@ -85,7 +97,7 @@ def test_lightweight_profile_accepts_reduced_configuration():
     raw = example()
     raw["profile"] = "lightweight"
     raw["leadership"] = {"principal": "Owner"}
-    raw["git_governance"] = {"ledger_url": None}
+    raw["git_governance"] = {"operator_mode": "single-human", "ledger_url": None}
     raw["modules"] = {}
 
     config = parse_framework_config(raw)

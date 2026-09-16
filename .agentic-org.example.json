@@ -14,6 +14,7 @@
     "assurance_owner": "Independent Reviewer"
   },
   "git_governance": {
+    "operator_mode": "single-human",
     "ledger_url": null,
     "high_risk_paths": [
       ".github/",

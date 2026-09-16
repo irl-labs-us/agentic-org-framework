@@ -156,8 +156,23 @@ def live_pr_metadata(repo_slug: str, pr_number: int) -> dict[str, str]:
     return {"body": body, "headRefOid": head}
 
 
+def _exact_pr_run(runs: list[dict], *, pr_number: int, head_sha: str) -> dict | None:
+    return next(
+        (
+            item
+            for item in runs
+            if any(
+                pr.get("number") == pr_number
+                and (pr.get("head") or {}).get("sha") == head_sha
+                for pr in item.get("pull_requests", [])
+            )
+        ),
+        None,
+    )
+
+
 def dispatch_governance_validation(
-    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+    *, repo_slug: str, pr_number: int, head_sha: str, workflow_file: str = "git-governance.yml"
 ) -> str:
     """
     Dispatch trusted validation for the exact head, or identify a bounded
@@ -172,17 +187,19 @@ def dispatch_governance_validation(
     manifest that caused it is fixed -- exactly what happened the first time
     this automation shipped without it.
 
-    A pull_request run uses the workflow from the trusted base branch. Re-run
-    that exact run rather than dispatching candidate-branch workflow code.
+    A pull_request_target run uses the workflow from the trusted base branch.
+    Re-run that exact PR/head run rather than dispatching candidate-branch
+    workflow code.
     """
     raw = run(
-        "gh", "run", "list", "--repo", repo_slug, "--branch", head_branch,
-        "--workflow", workflow_file, "--json", "databaseId,headSha,conclusion,status", "--limit", "10",
+        "gh", "api",
+        f"repos/{repo_slug}/actions/workflows/{workflow_file}/runs?event=pull_request_target&per_page=100",
     )
-    match = next((r for r in json.loads(raw) if r["headSha"] == head_sha), None)
+    runs = json.loads(raw).get("workflow_runs", [])
+    match = _exact_pr_run(runs, pr_number=pr_number, head_sha=head_sha)
     if match is None:
         return f"governance validation pending for {head_sha[:8]}: exact-head run not visible yet"
-    run_id = match["databaseId"]
+    run_id = match["id"]
     if match["status"] != "completed":
         return f"governance validation pending in run {run_id} for {head_sha[:8]}"
     try:
@@ -195,13 +212,13 @@ def dispatch_governance_validation(
 
 
 def rerun_stale_check(
-    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+    *, repo_slug: str, pr_number: int, head_sha: str, workflow_file: str = "git-governance.yml"
 ) -> str:
     """Compatibility alias for the deterministic dispatch path."""
 
     return dispatch_governance_validation(
         repo_slug=repo_slug,
-        head_branch=head_branch,
+        pr_number=pr_number,
         head_sha=head_sha,
         workflow_file=workflow_file,
     )
@@ -252,7 +269,7 @@ def sync(*, repo: Path, remote: str, base_branch: str, head_branch: str, repo_sl
 
         dispatch = dispatch_governance_validation(
             repo_slug=repo_slug,
-            head_branch=head_branch,
+            pr_number=pr_number,
             head_sha=head_sha,
         )
         return f"{result}; {dispatch}"

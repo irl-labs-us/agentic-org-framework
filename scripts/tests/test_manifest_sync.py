@@ -66,8 +66,8 @@ def test_feature_manifest_sync_changes_only_the_manifest(monkeypatch, tmp_path):
             body_path = Path(command[command.index("--body-file") + 1])
             updated_bodies.append(body_path.read_text(encoding="utf-8"))
             return "updated"
-        if command[:3] == ("gh", "run", "list"):
-            return json.dumps([])
+        if command[:2] == ("gh", "api"):
+            return json.dumps({"workflow_runs": []})
         raise AssertionError(f"unexpected command: {command}")
 
     monkeypatch.setattr(manifest_sync, "run", fake_run)
@@ -102,16 +102,18 @@ def test_manifest_sync_dispatches_completed_exact_head_run(monkeypatch):
 
     def fake_run(*command):
         calls.append(command)
-        if command[:3] == ("gh", "run", "list"):
+        if command[:2] == ("gh", "api"):
             return json.dumps(
-                [
+                {"workflow_runs": [
                     {
-                        "databaseId": 404,
-                        "headSha": "a" * 40,
+                        "id": 404,
                         "status": "completed",
                         "conclusion": "failure",
+                        "pull_requests": [
+                            {"number": 21, "head": {"sha": "a" * 40}}
+                        ],
                     }
-                ]
+                ]}
             )
         if command[:3] == ("gh", "run", "rerun"):
             return "queued"
@@ -121,7 +123,7 @@ def test_manifest_sync_dispatches_completed_exact_head_run(monkeypatch):
 
     note = manifest_sync.dispatch_governance_validation(
         repo_slug="example/project",
-        head_branch="feature/fixture",
+        pr_number=21,
         head_sha="a" * 40,
     )
 
@@ -167,8 +169,8 @@ def test_manifest_sync_recomputes_once_when_live_head_changes(monkeypatch, tmp_p
             return json.dumps(next(views))
         if command[:3] == ("gh", "pr", "edit"):
             return "updated"
-        if command[:3] == ("gh", "run", "list"):
-            return "[]"
+        if command[:2] == ("gh", "api"):
+            return json.dumps({"workflow_runs": []})
         raise AssertionError(command)
 
     monkeypatch.setattr(manifest_sync, "run", fake_run)

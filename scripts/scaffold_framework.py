@@ -29,10 +29,13 @@ BUNDLE_SOURCES = (
     "scripts/sync_pr_manifest.py",
     "scripts/customer_feedback_harness.py",
     "scripts/build_weekly_feedback_review.py",
+    "scripts/tests/test_agentic_org_framework.py",
     "templates/GIT_OPERATIONS_COVENANT.md",
     "templates/AGENT_GOVERNANCE_TEMPLATE.md",
     "templates/LIGHTWEIGHT_MISSION_TEMPLATE.md",
     "templates/MISSION_PACKET_TEMPLATE.md",
+    "templates/SINGLE_HUMAN_MISSION_TEMPLATE.md",
+    "templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md",
     "templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md",
     "templates/GIT_WORK_REGISTRY.md",
     "templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md",
@@ -78,62 +81,13 @@ def _render(text: str, config: FrameworkConfig, *, replace_branches: bool = Fals
         "<org>/<repo>": config.repository.slug,
         "__INTEGRATION_BRANCH__": config.repository.integration_branch,
         "__RELEASE_BRANCH__": config.repository.release_branch,
+        "__REMOTE__": config.repository.remote,
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
     if replace_branches:
         text = re.sub(r"\bstaging\b", config.repository.integration_branch, text)
         text = re.sub(r"\bmain\b", config.repository.release_branch, text)
-    return text
-
-
-def _render_profile(text: str, destination: str, config: FrameworkConfig) -> str:
-    """Remove multi-operator-only instructions from non-multi generated files."""
-
-    if config.profile == "multi":
-        return text
-    if destination == ".github/pull_request_template.md":
-        text = re.sub(
-            r"- Multi-operator mode \(default\):.*?section when the configured profile is `multi`\.\n",
-            "- Solo-operator mode is configured: keep the single `Git-work lease: N/A — "
-            "solo-operator mode` line under `## Branch integration`; no lease section or "
-            "ledger link is required.\n",
-            text,
-            count=1,
-            flags=re.DOTALL,
-        )
-        text = re.sub(
-            r"- Git-work lease ID:\n- Live-ledger lease grant: .*\n",
-            "- Git-work lease: N/A — solo-operator mode\n",
-            text,
-            count=1,
-        )
-        text = re.sub(
-            r"\n## Git-work lease\n.*?(?=\n## Changed-file manifest\n)",
-            "\n",
-            text,
-            count=1,
-            flags=re.DOTALL,
-        )
-    elif destination == "docs/coordination/GIT_OPERATIONS_COVENANT.md":
-        text = text.replace(
-            "[live Git-work control ledger](N/A (solo-operator mode))",
-            "live Git-work control ledger (not used in solo-operator mode)",
-        )
-        text = text.replace(
-            "- `## Git-work lease`\n",
-            "- `## Git-work lease` (multi-operator mode only)\n",
-        )
-        text = text.replace(
-            "The `## Git-work lease` section must itself contain both a lease ID matching "
-            "`GIT-YYYY-NNN` and the exact numeric `LEASE GRANTED` comment URL matching "
-            "`N/A (solo-operator mode)#issuecomment-<digits>`. The issue root URL is not "
-            "sufficient. A lease ID written only under `## Branch integration`, in a PR title, "
-            "or in a comment does not satisfy this contract.",
-            "The `## Git-work lease` section is omitted in solo-operator mode. The "
-            "`## Branch integration` section records `Git-work lease: N/A — solo-operator "
-            "mode` instead.",
-        )
     return text
 
 
@@ -145,9 +99,9 @@ def _startup(config: FrameworkConfig) -> str:
         "",
         "- `docs/CONTROL_MATRIX.md`",
         "- `docs/governance/AGENT_GOVERNANCE.md`",
-        "- `docs/coordination/GIT_OPERATIONS_COVENANT.md`",
     ]
-    if config.profile == "multi":
+    if config.multi_human_mode:
+        lines.append("- `docs/coordination/GIT_OPERATIONS_COVENANT.md`")
         lines.append("- `docs/coordination/GIT_WORK_REGISTRY.md`")
     if config.modules.customer_feedback:
         lines.append("- `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` for customer-facing work")
@@ -183,6 +137,7 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
         "always",
         "agent_governance",
         config.profile,
+        config.git_governance.operator_mode,
     }
     enabled.update(
         name
@@ -193,7 +148,7 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
     lines = [
         "# Control Matrix",
         "",
-        f"Generated from `templates/control-matrix.json` schema {raw['schema_version']} for the `{config.profile}` profile.",
+        f"Generated from `templates/control-matrix.json` schema {raw['schema_version']} for the `{config.profile}` agent profile and `{config.git_governance.operator_mode}` repository operator mode.",
         "The matrix states where a control is enforced and where human judgment remains authoritative.",
         "",
         "| ID | Control | Risk addressed | Owner | Evidence | Failure behavior | Status |",
@@ -216,31 +171,48 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
 
 def _file_mapping(config: FrameworkConfig) -> dict[str, str]:
     mapping = {
-        "templates/GIT_OPERATIONS_COVENANT.md": "docs/coordination/GIT_OPERATIONS_COVENANT.md",
         "templates/AGENT_GOVERNANCE_TEMPLATE.md": "docs/governance/AGENT_GOVERNANCE.md",
-        ".github/pull_request_template.md": ".github/pull_request_template.md",
-        ".github/workflows/git-governance.yml": ".github/workflows/git-governance.yml",
         "scripts/framework_config.py": "scripts/framework_config.py",
         "scripts/scaffold_framework.py": "scripts/scaffold_framework.py",
         "scripts/framework_doctor.py": "scripts/framework_doctor.py",
-        "scripts/check_git_governance.py": "scripts/check_git_governance.py",
         "scripts/check_pr_readiness.py": "scripts/check_pr_readiness.py",
-        "scripts/create_feature_worktree.py": "scripts/create_feature_worktree.py",
-        "scripts/create_release_pr.py": "scripts/create_release_pr.py",
+        "scripts/tests/test_agentic_org_framework.py": "scripts/tests/test_agentic_org_framework.py",
     }
     if config.profile == "lightweight":
         mapping["templates/LIGHTWEIGHT_MISSION_TEMPLATE.md"] = (
             "docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md"
         )
-    else:
+    elif config.multi_human_mode:
         mapping.update(
             {
                 "templates/MISSION_PACKET_TEMPLATE.md": "docs/coordination/MISSION_PACKET_TEMPLATE.md",
                 "templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md": "docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md",
             }
         )
-    if config.profile == "multi":
-        mapping["templates/GIT_WORK_REGISTRY.md"] = "docs/coordination/GIT_WORK_REGISTRY.md"
+    else:
+        mapping.update(
+            {
+                "templates/SINGLE_HUMAN_MISSION_TEMPLATE.md": "docs/coordination/MISSION_PACKET_TEMPLATE.md",
+                "templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md": "docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md",
+            }
+        )
+    if config.multi_human_mode:
+        mapping[".github/pull_request_template.md"] = ".github/pull_request_template.md"
+    else:
+        mapping["templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md"] = (
+            ".github/pull_request_template.md"
+        )
+    if config.multi_human_mode:
+        mapping.update(
+            {
+                "templates/GIT_OPERATIONS_COVENANT.md": "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+                "templates/GIT_WORK_REGISTRY.md": "docs/coordination/GIT_WORK_REGISTRY.md",
+                ".github/workflows/git-governance.yml": ".github/workflows/git-governance.yml",
+                "scripts/check_git_governance.py": "scripts/check_git_governance.py",
+                "scripts/create_feature_worktree.py": "scripts/create_feature_worktree.py",
+                "scripts/create_release_pr.py": "scripts/create_release_pr.py",
+            }
+        )
     if config.modules.manifest_sync:
         mapping.update(
             {
@@ -285,8 +257,6 @@ def desired_files(source: Path, config: FrameworkConfig) -> dict[str, bytes]:
             if Path(destination).suffix == ".py"
             else _render(raw, config, replace_branches=replace_branches)
         )
-        if Path(destination).suffix != ".py":
-            rendered = _render_profile(rendered, destination, config)
         result[destination] = rendered.encode()
     return result
 
@@ -302,16 +272,25 @@ def canonical_bootstrap_hashes(source: Path, config: FrameworkConfig) -> dict[st
     return result
 
 
-def _read_manifest(target: Path) -> dict[str, str]:
+def _read_manifest(target: Path) -> tuple[dict[str, str], set[str]]:
     path = target / MANIFEST_NAME
     if not path.exists():
-        return {}
+        return {}, set()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         files = raw["files"]
-        if raw.get("schema_version") != 1 or not isinstance(files, dict):
+        preserved = raw.get("preserved", [])
+        if (
+            raw.get("schema_version") != 1
+            or not isinstance(files, dict)
+            or not isinstance(preserved, list)
+            or not all(isinstance(item, str) and item for item in preserved)
+        ):
             raise ValueError
-        return {str(key): str(value) for key, value in files.items()}
+        return (
+            {str(key): str(value) for key, value in files.items()},
+            set(preserved),
+        )
     except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
         raise FrameworkConfigError(f"invalid {MANIFEST_NAME}; repair or remove it before applying") from exc
 
@@ -323,9 +302,9 @@ def plan_changes(
     bootstrap_hashes: dict[str, str] | None = None,
     preserve_existing: set[str] | None = None,
 ) -> tuple[list[PlannedChange], dict[str, str]]:
-    owned = _read_manifest(target)
+    owned, recorded_preserved = _read_manifest(target)
     bootstrap_hashes = bootstrap_hashes or {}
-    preserve_existing = preserve_existing or set()
+    preserve_existing = set(preserve_existing or ()) | recorded_preserved
     changes: list[PlannedChange] = []
     for relative, content in sorted(desired.items()):
         path = target / relative
