@@ -1,0 +1,29 @@
+name: Sync feature PR manifest
+
+on:
+  push:
+    branches-ignore: [__INTEGRATION_BRANCH__, __RELEASE_BRANCH__]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: feature-pr-manifest-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Refresh this branch open PR manifest if any
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh Changed-file manifest only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.ref_name }}
+        run: python scripts/sync_pr_manifest.py --repo . --head "$HEAD_REF"

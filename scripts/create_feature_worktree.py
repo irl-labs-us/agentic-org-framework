@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a single-use feature worktree from freshly fetched remote staging."""
+"""Create a single-use feature worktree from the freshly fetched integration branch."""
 
 from __future__ import annotations
 
@@ -11,8 +11,10 @@ from pathlib import Path
 
 if __package__:
     from scripts.check_git_governance import is_prohibited_integration_ref
+    from scripts.framework_config import FrameworkConfigError, load_framework_config
 else:
     from check_git_governance import is_prohibited_integration_ref
+    from framework_config import FrameworkConfigError, load_framework_config
 
 
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -43,17 +45,17 @@ def create_feature_worktree(
     worktree: Path,
     recorded_base: str,
     remote: str = "origin",
+    target: str = "staging",
+    release_branch: str = "main",
 ) -> str:
     repo = Path(git(repo, "rev-parse", "--show-toplevel").stdout.strip())
     requested_worktree = worktree.expanduser()
     if requested_worktree.exists() or requested_worktree.is_symlink():
         raise BranchCreationError(f"worktree path already exists: {requested_worktree}")
     worktree = requested_worktree.resolve()
-    target = "staging"
-
     if not FULL_SHA.fullmatch(recorded_base):
         raise BranchCreationError("recorded base must be an exact lowercase 40-character SHA")
-    if branch in {"main", "master", "staging"}:
+    if branch in {release_branch, target}:
         raise BranchCreationError("feature branch may not use a protected branch name")
     if is_prohibited_integration_ref(branch):
         raise BranchCreationError("archive and frozen branch identities are prohibited")
@@ -120,29 +122,36 @@ def create_feature_worktree(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path)
     parser.add_argument("--branch", required=True, help="Unique single-use feature branch")
     parser.add_argument("--worktree", required=True, type=Path, help="New isolated path")
     parser.add_argument("--recorded-base", required=True, help="Full SHA from the live lease grant")
-    parser.add_argument("--remote", default="origin")
+    parser.add_argument("--remote", help="Override the configured Git remote")
+    parser.add_argument("--target", help="Override the configured integration branch")
     parser.add_argument("--repo", default=Path.cwd(), type=Path)
     args = parser.parse_args()
 
     try:
+        config = load_framework_config(repo=args.repo, path=args.config, required=False)
+        remote = args.remote or config.repository.remote
+        target = args.target or config.repository.integration_branch
         base = create_feature_worktree(
             repo=args.repo,
             branch=args.branch,
             worktree=args.worktree,
             recorded_base=args.recorded_base,
-            remote=args.remote,
+            remote=remote,
+            target=target,
+            release_branch=config.repository.release_branch,
         )
-    except BranchCreationError as exc:
+    except (BranchCreationError, FrameworkConfigError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
-    print("PASS: feature branch created from freshly fetched remote staging")
+    print(f"PASS: feature branch created from freshly fetched remote {target}")
     print(f"branch: {args.branch}")
     print(f"worktree: {args.worktree.expanduser().resolve()}")
-    print(f"base: {args.remote}/staging @ {base}")
+    print(f"base: {remote}/{target} @ {base}")
 
 
 if __name__ == "__main__":

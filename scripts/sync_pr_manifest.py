@@ -37,6 +37,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from framework_config import FrameworkConfigError, load_framework_config
 
 class SyncError(RuntimeError):
     pass
@@ -142,12 +143,25 @@ def compute_manifest(
     return sorted(files), head_sha
 
 
-def rerun_stale_check(
+def live_pr_metadata(repo_slug: str, pr_number: int) -> dict[str, str]:
+    raw = run(
+        "gh", "pr", "view", str(pr_number), "--repo", repo_slug,
+        "--json", "body,headRefOid",
+    )
+    value = json.loads(raw)
+    body = value.get("body") or ""
+    head = value.get("headRefOid") or ""
+    if not isinstance(body, str) or not isinstance(head, str):
+        raise SyncError("GitHub returned malformed PR metadata")
+    return {"body": body, "headRefOid": head}
+
+
+def dispatch_governance_validation(
     *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
-) -> str | None:
+) -> str:
     """
-    Find the most recent run of `workflow_file` for `head_branch` whose head
-    SHA matches `head_sha`, and re-run it if it previously failed.
+    Dispatch trusted validation for the exact head, or identify a bounded
+    pending state when GitHub has not materialized the pull-request run yet.
 
     This exists because editing a PR body via `gh pr edit` with the ambient
     GITHUB_TOKEN does *not* trigger a new `pull_request` "edited" event --
@@ -158,25 +172,39 @@ def rerun_stale_check(
     manifest that caused it is fixed -- exactly what happened the first time
     this automation shipped without it.
 
-    Returns a message describing what happened, or None if there's no
-    matching run or it didn't previously fail (nothing to do).
+    A pull_request run uses the workflow from the trusted base branch. Re-run
+    that exact run rather than dispatching candidate-branch workflow code.
     """
     raw = run(
         "gh", "run", "list", "--repo", repo_slug, "--branch", head_branch,
         "--workflow", workflow_file, "--json", "databaseId,headSha,conclusion,status", "--limit", "10",
     )
     match = next((r for r in json.loads(raw) if r["headSha"] == head_sha), None)
-    if match is None or match["status"] != "completed" or match["conclusion"] != "failure":
-        return None
+    if match is None:
+        return f"governance validation pending for {head_sha[:8]}: exact-head run not visible yet"
     run_id = match["databaseId"]
+    if match["status"] != "completed":
+        return f"governance validation pending in run {run_id} for {head_sha[:8]}"
     try:
         run("gh", "run", "rerun", str(run_id), "--repo", repo_slug)
     except SyncError as exc:
-        # A rerun failing (e.g. the run aged out of GitHub's ~30-day rerun
-        # window) shouldn't turn an otherwise-successful manifest sync into
-        # a reported failure -- surface it as a note, not an exception.
-        return f"manifest refreshed, but could not re-trigger stale {workflow_file} run {run_id}: {exc}"
-    return f"re-triggered stale {workflow_file} run {run_id} for {head_sha[:8]} (GITHUB_TOKEN edits don't trigger it themselves)"
+        raise SyncError(
+            f"manifest updated but exact-head governance run {run_id} could not be dispatched: {exc}"
+        ) from exc
+    return f"dispatched trusted governance run {run_id} for {head_sha[:8]}; result pending"
+
+
+def rerun_stale_check(
+    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+) -> str:
+    """Compatibility alias for the deterministic dispatch path."""
+
+    return dispatch_governance_validation(
+        repo_slug=repo_slug,
+        head_branch=head_branch,
+        head_sha=head_sha,
+        workflow_file=workflow_file,
+    )
 
 
 def sync(*, repo: Path, remote: str, base_branch: str, head_branch: str, repo_slug: str) -> str | None:
@@ -187,49 +215,75 @@ def sync(*, repo: Path, remote: str, base_branch: str, head_branch: str, repo_sl
         raise SyncError(f"multiple open PRs from {head_branch} to {base_branch}; reconcile before continuing")
     pr_number = existing[0]
 
-    old_body = run("gh", "pr", "view", str(pr_number), "--repo", repo_slug, "--json", "body", "-q", ".body")
-    manifest_lines, head_sha = compute_manifest(repo, remote, base_branch, head_branch)
-    manifest_text = "\n".join(f"- `{path}`" for path in manifest_lines)
-    new_body = replace_section(old_body, "Changed-file manifest", manifest_text)
+    for attempt in range(2):
+        manifest_lines, head_sha = compute_manifest(repo, remote, base_branch, head_branch)
+        observed = live_pr_metadata(repo_slug, pr_number)
+        if observed["headRefOid"] != head_sha:
+            if attempt == 0:
+                continue
+            raise SyncError(
+                f"PR head changed during manifest computation: fetched {head_sha}, "
+                f"live {observed['headRefOid']}"
+            )
+        old_body = observed["body"]
+        manifest_text = "\n".join(f"- `{path}`" for path in manifest_lines)
+        new_body = replace_section(old_body, "Changed-file manifest", manifest_text)
+        preflight = live_pr_metadata(repo_slug, pr_number)
+        if preflight != observed:
+            if attempt == 0:
+                continue
+            raise SyncError("PR body or head changed during manifest synchronization; retry from fresh state")
 
-    if new_body == old_body:
-        result = f"PR #{pr_number} manifest already current; nothing to do"
-    else:
-        descriptor, raw_path = tempfile.mkstemp(prefix="pr-manifest-", suffix=".md")
-        body_file = Path(raw_path)
-        try:
-            with open(descriptor, "w", encoding="utf-8") as handle:
-                handle.write(new_body)
-            run("gh", "pr", "edit", str(pr_number), "--repo", repo_slug, "--body-file", str(body_file))
-        finally:
-            body_file.unlink(missing_ok=True)
-        result = f"refreshed changed-file manifest of PR #{pr_number} ({len(manifest_lines)} files)"
+        if new_body == old_body:
+            result = f"PR #{pr_number} manifest already current"
+        else:
+            descriptor, raw_path = tempfile.mkstemp(prefix="pr-manifest-", suffix=".md")
+            body_file = Path(raw_path)
+            try:
+                with open(descriptor, "w", encoding="utf-8") as handle:
+                    handle.write(new_body)
+                run("gh", "pr", "edit", str(pr_number), "--repo", repo_slug, "--body-file", str(body_file))
+            finally:
+                body_file.unlink(missing_ok=True)
+            after = live_pr_metadata(repo_slug, pr_number)
+            if after["headRefOid"] != head_sha:
+                raise SyncError("PR head changed while publishing the manifest; refreshed review is required")
+            result = f"refreshed changed-file manifest of PR #{pr_number} ({len(manifest_lines)} files)"
 
-    rerun_note = rerun_stale_check(repo_slug=repo_slug, head_branch=head_branch, head_sha=head_sha)
-    if rerun_note:
-        result += f"; {rerun_note}"
-    return result
+        dispatch = dispatch_governance_validation(
+            repo_slug=repo_slug,
+            head_branch=head_branch,
+            head_sha=head_sha,
+        )
+        return f"{result}; {dispatch}"
+    raise SyncError("manifest synchronization did not reach a stable PR state")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="Local repository path")
-    parser.add_argument("--repo-slug", required=True, help="owner/repo, e.g. <org>/<repo>")
-    parser.add_argument("--remote", default="origin")
-    parser.add_argument("--base", required=True, help="PR base branch, e.g. staging")
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--repo-slug", help="owner/repo; overrides project config")
+    parser.add_argument("--remote", help="Git remote; overrides project config")
+    parser.add_argument("--base", help="PR base branch; overrides project config")
     parser.add_argument("--head", required=True, help="PR head branch, e.g. the feature branch")
     args = parser.parse_args()
 
     try:
+        repo = Path(args.repo).resolve()
+        config = load_framework_config(repo=repo, path=args.config, required=False)
+        repo_slug = args.repo_slug or config.repository.slug
+        remote = args.remote or config.repository.remote
+        base = args.base or config.repository.integration_branch
         result = sync(
-            repo=Path(args.repo).resolve(),
-            remote=args.remote,
-            base_branch=args.base,
+            repo=repo,
+            remote=remote,
+            base_branch=base,
             head_branch=args.head,
-            repo_slug=args.repo_slug,
+            repo_slug=repo_slug,
         )
-        print(result if result else f"no open PR from {args.head} to {args.base}; nothing to do")
-    except (SyncError, OSError, json.JSONDecodeError) as exc:
+        print(result if result else f"no open PR from {args.head} to {base}; nothing to do")
+    except (FrameworkConfigError, SyncError, OSError, json.JSONDecodeError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 

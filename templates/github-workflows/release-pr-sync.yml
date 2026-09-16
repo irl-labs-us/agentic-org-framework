@@ -1,0 +1,28 @@
+name: Sync release PR
+
+on:
+  push:
+    branches: [__INTEGRATION_BRANCH__]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: release-pr-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Refresh open release PR mechanical sections
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh mechanical sections if a release PR is open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/create_release_pr.py --repo . --sync-mechanical

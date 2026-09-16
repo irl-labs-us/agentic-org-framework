@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "controls": [
+    {
+      "id": "config-validation",
+      "module": "always",
+      "control": "Validated framework configuration",
+      "risk": "Policy drift and inconsistent tool defaults",
+      "owner": "Automation",
+      "evidence": ".agentic-org.json and framework doctor output",
+      "failure": "Commands and doctor fail closed",
+      "status": "checked"
+    },
+    {
+      "id": "git-governance",
+      "module": "always",
+      "control": "Trusted-base Git operations covenant",
+      "risk": "Stale, stacked, reused, or unauthorized integration",
+      "owner": "CI and Merge Steward",
+      "evidence": "Git operations covenant check and final steward decision",
+      "failure": "Protected branch merge is blocked",
+      "status": "enforced when branch protection is configured"
+    },
+    {
+      "id": "authorized-scope",
+      "module": "always",
+      "control": "Changed files remain inside approved scope",
+      "risk": "Undeclared scope expansion",
+      "owner": "CI and accountable owner",
+      "evidence": "PR Authorized scope section",
+      "failure": "Governance validation fails with out-of-scope paths",
+      "status": "enforced"
+    },
+    {
+      "id": "candidate-bound-review",
+      "module": "always",
+      "control": "Structured review bound to current head",
+      "risk": "Stale or incomplete approval evidence",
+      "owner": "CI and named reviewer",
+      "evidence": "PR Risk and review evidence section",
+      "failure": "Governance validation fails",
+      "status": "record enforced; evidence truth manual"
+    },
+    {
+      "id": "agent-governance",
+      "module": "agent_governance",
+      "control": "Agent Governance Charter and production gates",
+      "risk": "Unowned agent use, monitoring, or incident response",
+      "owner": "Principal and Assurance owner",
+      "evidence": "docs/governance/AGENT_GOVERNANCE.md",
+      "failure": "Production use remains blocked by policy",
+      "status": "manual"
+    },
+    {
+      "id": "lease-ledger",
+      "module": "multi",
+      "control": "Live Git-work lease ledger",
+      "risk": "Concurrent writers and ambiguous merge authority",
+      "owner": "Merge Steward",
+      "evidence": "Configured ledger issue and PR lease section",
+      "failure": "Governance validation fails",
+      "status": "record enforced; live match manual"
+    },
+    {
+      "id": "manifest-sync",
+      "module": "manifest_sync",
+      "control": "Deterministic PR manifest synchronization",
+      "risk": "Stale PR metadata after a push",
+      "owner": "GitHub Actions",
+      "evidence": "Sync workflow and exact-head governance run",
+      "failure": "Sync aborts or reports validation pending",
+      "status": "enforced when workflow is installed"
+    },
+    {
+      "id": "customer-feedback",
+      "module": "customer_feedback",
+      "control": "Strict normalized feedback and as-of review",
+      "risk": "Privacy leaks, malformed intake, and misleading reports",
+      "owner": "Automation and feedback owner",
+      "evidence": "Feedback harness output and weekly review",
+      "failure": "Malformed records are isolated and release blockers surface",
+      "status": "checked; disposition manual"
+    },
+    {
+      "id": "ai-output-discipline",
+      "module": "ai_output_discipline",
+      "control": "Critic, subtraction, and human edit pass",
+      "risk": "Low-quality or generic customer-facing output",
+      "owner": "Creative owner",
+      "evidence": "Mission evidence and AI output checklist",
+      "failure": "Acceptance owner blocks delivery",
+      "status": "manual"
+    }
+  ]
+}

@@ -46,7 +46,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--week-end",
         type=_date,
-        help="Exclusive UTC date; defaults to seven days later",
+        help=(
+            "Exclusive as-of UTC date; defaults to seven days later. Records at or after "
+            "this cutoff are excluded while older unresolved records carry forward."
+        ),
     )
     parser.add_argument(
         "--pseudonym-namespace",

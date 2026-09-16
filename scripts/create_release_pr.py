@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or repair the staging-to-main release PR with a complete body.
+"""Create or repair the configured integration-to-release PR with a complete body.
 
 The helper fetches both persistent branches, derives the release manifest from
 their merge base, renders all metadata required by Git governance, and passes
@@ -18,14 +18,16 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from framework_config import (
+    DEFAULT_LEDGER_URL,
+    FrameworkConfigError,
+    load_framework_config,
+)
 
 # TODO: point this at your project's live Git-work lease ledger (a pinned
 # tracking issue that records lease grants — see docs/GIT_OPERATIONS_COVENANT.md).
-LIVE_LEDGER_URL = "https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>"
+LIVE_LEDGER_URL = DEFAULT_LEDGER_URL
 LEASE_PATTERN = re.compile(r"^GIT-\d{4}-\d{3}$")
-GRANT_URL_PATTERN = re.compile(
-    rf"^{re.escape(LIVE_LEDGER_URL)}#issuecomment-\d+$"
-)
 MAX_PR_BODY_BYTES = 60_000
 
 
@@ -62,13 +64,21 @@ def git(repo: Path, *args: str) -> str:
     return run("git", "-C", str(repo), *args)
 
 
-def validate_release_metadata(lease_id: str, grant_url: str) -> None:
+def validate_release_metadata(
+    lease_id: str,
+    grant_url: str,
+    *,
+    ledger_url: str = LIVE_LEDGER_URL,
+) -> None:
     if not LEASE_PATTERN.fullmatch(lease_id):
         raise ReleasePreparationError("lease ID must match GIT-YYYY-NNN")
-    if not GRANT_URL_PATTERN.fullmatch(grant_url):
+    grant_url_pattern = re.compile(
+        rf"^{re.escape(ledger_url)}#issuecomment-\d+$"
+    )
+    if not grant_url_pattern.fullmatch(grant_url):
         raise ReleasePreparationError(
             "grant URL must identify a numeric LEASE GRANTED comment in the live ledger at "
-            f"{LIVE_LEDGER_URL}#issuecomment-<digits>"
+            f"{ledger_url}#issuecomment-<digits>"
         )
 
 
@@ -83,9 +93,9 @@ def validate_manifest_paths(files: tuple[str, ...]) -> None:
 def collect_release_context(
     repo: Path, remote: str, base_branch: str, head_branch: str
 ) -> ReleaseContext:
-    if base_branch not in {"main", "master"} or head_branch != "staging":
+    if base_branch == head_branch:
         raise ReleasePreparationError(
-            "release path must be exactly staging -> main or staging -> master"
+            "release base and integration head branches must differ"
         )
 
     git(
@@ -110,7 +120,7 @@ def collect_release_context(
         if line
     )
     if not files:
-        raise ReleasePreparationError("staging has no release changes after the merge base")
+        raise ReleasePreparationError("integration branch has no release changes after the merge base")
     return ReleaseContext(
         base_ref=base_ref,
         base_sha=base_sha,
@@ -121,6 +131,95 @@ def collect_release_context(
     )
 
 
+def render_release_mechanical_sections(
+    context: ReleaseContext,
+    *,
+    lease_id: str | None,
+    grant_url: str | None,
+    solo_mode: bool,
+    ledger_url: str = LIVE_LEDGER_URL,
+) -> tuple[str, str, str, str]:
+    """Render branch integration, lease content, manifest, and merge authority."""
+
+    ceo_placeholder = "{CEO}"
+    strategy_lead_placeholder = "{Strategy & Portfolio Lead}"
+    if solo_mode:
+        branch_integration_lease = (
+            "- Git-work lease: N/A — solo-operator mode "
+            "(see GIT_OPERATIONS_COVENANT.md)"
+        )
+        lease_content = ""
+        steward_line = "the operator"
+        risk_evidence = (
+            "High-risk production release; current-head CI, integration verification, specialist evidence "
+            "for included high-risk changes, and a deliberate operator second pass required"
+        )
+        deploy_authority = (
+            "The PR authorizes no merge by itself; only the operator merges, "
+            "after a deliberate second pass"
+        )
+    else:
+        if lease_id is None or grant_url is None:
+            raise ReleasePreparationError(
+                "multi-operator release rendering requires a lease ID and live-ledger grant URL"
+            )
+        validate_release_metadata(lease_id, grant_url, ledger_url=ledger_url)
+        branch_integration_lease = (
+            f"- Git-work lease ID: {lease_id}\n- Live-ledger lease grant: {grant_url}"
+        )
+        lease_content = (
+            f"- Git-work lease ID: {lease_id}\n"
+            f"- Live-ledger grant link: {grant_url}\n"
+            "- Lease expiry: See live grant\n"
+            f"- Closeout owner and disposition: {ceo_placeholder} / "
+            f"{strategy_lead_placeholder}; close after release merge or PR closure"
+        )
+        steward_line = ceo_placeholder
+        risk_evidence = (
+            "High-risk production release; current-head CI, integration verification, specialist evidence "
+            "for included high-risk changes, and Merge Steward decision required"
+        )
+        deploy_authority = (
+            "The PR authorizes no merge by itself; only the recorded Merge Steward may merge"
+        )
+
+    validate_manifest_paths(context.files)
+    manifest = "\n".join(f"- `{path}`" for path in context.files)
+    branch_integration = f"""{branch_integration_lease}
+- Persistent release branch: `{context.head_ref}`
+- Target branch / fetched tracking ref: `{context.base_ref}`
+- Exact target base SHA: `{context.base_sha}`
+- Exact release head SHA: `{context.head_sha}`
+- Common merge base: `{context.merge_base}`
+- Publication shape: Authorized persistent-branch release
+- Merge Steward on duty: {steward_line}
+- Risk class / review evidence: {risk_evidence}"""
+    return branch_integration, lease_content, manifest, deploy_authority
+
+
+def parse_release_lease_section(
+    section: str,
+    *,
+    ledger_url: str = LIVE_LEDGER_URL,
+) -> tuple[str, str]:
+    """Read and validate release lease metadata from an existing PR body."""
+
+    lease_match = re.search(r"\bGIT-\d{4}-\d{3}\b", section)
+    grant_match = re.search(
+        rf"{re.escape(ledger_url)}#issuecomment-\d+",
+        section,
+    )
+    if lease_match is None or grant_match is None:
+        raise ReleasePreparationError(
+            "existing release PR's Git-work lease section must contain a valid lease ID "
+            "and live-ledger grant URL"
+        )
+    lease_id = lease_match.group(0)
+    grant_url = grant_match.group(0)
+    validate_release_metadata(lease_id, grant_url, ledger_url=ledger_url)
+    return lease_id, grant_url
+
+
 def render_release_body(
     context: ReleaseContext,
     *,
@@ -128,6 +227,15 @@ def render_release_body(
     grant_url: str | None,
     evidence: str,
     solo_mode: bool = False,
+    ledger_url: str = LIVE_LEDGER_URL,
+    scope_reference: str = "release-owner approval",
+    authorized_paths: tuple[str, ...] | None = None,
+    reviewer: str = "Independent Reviewer",
+    reviewer_independence: str = "independent",
+    decision: str = "approve",
+    evidence_references: str = "release verification evidence",
+    decision_timestamp: str = "2026-01-01T00:00:00Z",
+    decision_expiry: str = "None",
 ) -> str:
     # Bare, non-f-string literals: SETUP.md's project-wide find-and-replace
     # substitutes {CEO}/{Strategy & Portfolio Lead} with real names across
@@ -138,73 +246,64 @@ def render_release_body(
     # cleanly match and which rendered as literal "{{CEO}}" in the output
     # if setup's substitution was skipped.
     ceo_placeholder = "{CEO}"
-    strategy_lead_placeholder = "{Strategy & Portfolio Lead}"
-
-    if solo_mode:
-        branch_integration_lease = "- Git-work lease: N/A — solo-operator mode (see GIT_OPERATIONS_COVENANT.md)"
-        lease_section = ""
-        steward_line = "the operator"
-        risk_evidence = (
-            "High-risk production release; current-head CI, staging verification, specialist evidence "
-            "for included high-risk changes, and a deliberate operator second pass required"
+    branch_integration, lease_content, manifest, deploy_authority = (
+        render_release_mechanical_sections(
+            context,
+            lease_id=lease_id,
+            grant_url=grant_url,
+            solo_mode=solo_mode,
+            ledger_url=ledger_url,
         )
-        deploy_authority = "The PR authorizes no merge by itself; only the operator merges, after a deliberate second pass"
-    else:
-        assert lease_id is not None and grant_url is not None
-        validate_release_metadata(lease_id, grant_url)
-        branch_integration_lease = (
-            f"- Git-work lease ID: {lease_id}\n- Live-ledger lease grant: {grant_url}"
-        )
-        lease_section = f"""
-## Git-work lease
-
-- Git-work lease ID: {lease_id}
-- Live-ledger grant link: {grant_url}
-- Lease expiry: See live grant
-- Closeout owner and disposition: {ceo_placeholder} / {strategy_lead_placeholder}; close after release merge or PR closure
-"""
-        steward_line = ceo_placeholder
-        risk_evidence = (
-            "High-risk production release; current-head CI, staging verification, specialist evidence "
-            "for included high-risk changes, and Merge Steward decision required"
-        )
-        deploy_authority = "The PR authorizes no merge by itself; only the recorded Merge Steward may merge"
-
-    validate_manifest_paths(context.files)
-    manifest = "\n".join(f"- `{path}`" for path in context.files)
+    )
+    lease_section = (
+        f"\n## Git-work lease\n\n{lease_content}\n" if lease_content else ""
+    )
     base_branch = context.base_ref.rsplit("/", 1)[-1]
+    integration_branch = context.head_ref.rsplit("/", 1)[-1]
+    authorized_paths = authorized_paths or context.files
+    validate_manifest_paths(authorized_paths)
+    scope_lines = "\n".join(f"- Approved path: `{path}`" for path in authorized_paths)
     body = f"""## Outcome
 
-Release the exact verified `staging` state to production through `{base_branch}` without adding feature work during release integration.
+Release the exact verified `{integration_branch}` state to production through `{base_branch}` without adding feature work during release integration.
 
 ## Coordination and scope
 
-- Mission or case: Governed staging-to-{base_branch} release
+- Mission or case: Governed {integration_branch}-to-{base_branch} release
 - Accountable owner: {ceo_placeholder}, CEO and Merge Steward
-- Writer scope: Persistent `staging` release head only; no release-PR code edits
+- Writer scope: Persistent `{integration_branch}` release head only; no release-PR code edits
 - Independent reviewer: Required high-risk release evidence recorded below
-- Expected overlapping files and owning writer: Release manifest below; feature ownership remains with the originating staging PRs
+- Expected overlapping files and owning writer: Release manifest below; feature ownership remains with the originating integration PRs
 
 ## Branch integration
 
-{branch_integration_lease}
-- Persistent release branch: `{context.head_ref}`
-- Target branch / fetched tracking ref: `{context.base_ref}`
-- Exact target base SHA: `{context.base_sha}`
-- Exact release head SHA: `{context.head_sha}`
-- Common merge base: `{context.merge_base}`
-- Publication shape: Authorized persistent-branch release
-- Merge Steward on duty: {steward_line}
-- Risk class / review evidence: {risk_evidence}
+{branch_integration}
 {lease_section}
 ## Changed-file manifest
 
 {manifest}
 
+## Authorized scope
+
+- Scope reference: {scope_reference}
+{scope_lines}
+
+## Risk and review evidence
+
+- Risk class: high
+- Reviewer: {reviewer}
+- Reviewer independence: {reviewer_independence}
+- Decision: {decision}
+- Reviewed head SHA: {context.head_sha}
+- Policy/config version: agentic-org-config/v1
+- Evidence references: {evidence_references}
+- Decision timestamp: {decision_timestamp}
+- Decision expiry: {decision_expiry}
+
 ## Evidence
 
 - Tests and checks: {evidence}
-- Limitations or open gates: Release merge remains prohibited until all current-head checks, staging verification{"" if solo_mode else ", live-ledger match"}, and the final {"operator" if solo_mode else "Merge Steward"} freshness decision pass
+- Limitations or open gates: Release merge remains prohibited until all current-head checks, integration verification{"" if solo_mode else ", live-ledger match"}, and the final {"operator" if solo_mode else "Merge Steward"} freshness decision pass
 - Deployment/production authority: {deploy_authority}
 """
     body_size = len(body.encode("utf-8"))
@@ -240,6 +339,55 @@ def body_section(body: str, heading: str) -> str:
     return "\n".join(lines[start:end]).strip("\n")
 
 
+def replace_body_section(body: str, heading: str, content: str) -> str:
+    lines = body.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip().casefold() == f"## {heading}".casefold():
+            start = index + 1
+            break
+    if start is None:
+        raise ReleasePreparationError(f"existing PR body is missing '## {heading}'")
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return "\n".join(lines[:start]) + "\n\n" + content.strip("\n") + "\n\n" + "\n".join(lines[end:])
+
+
+def live_release_pr_metadata(repo_slug: str, pr_number: int) -> dict[str, str]:
+    raw = run(
+        "gh", "pr", "view", str(pr_number), "--repo", repo_slug,
+        "--json", "body,headRefOid",
+    )
+    value = json.loads(raw)
+    body = value.get("body") or ""
+    head = value.get("headRefOid") or ""
+    if not isinstance(body, str) or not isinstance(head, str):
+        raise ReleasePreparationError("GitHub returned malformed release PR metadata")
+    return {"body": body, "headRefOid": head}
+
+
+def infer_release_sync_solo_mode(body: str) -> bool:
+    """Infer operator mode from an existing governed release PR body."""
+
+    headings = {
+        line.strip().casefold()
+        for line in body.splitlines()
+        if line.startswith("## ")
+    }
+    if "## git-work lease" in headings:
+        return False
+    branch_integration = body_section(body, "Branch integration")
+    if "solo-operator mode" in branch_integration.casefold():
+        return True
+    raise ReleasePreparationError(
+        "cannot infer release operator mode: expected a Git-work lease section "
+        "or a solo-operator marker in Branch integration"
+    )
+
+
 def sync_release_pr_mechanical_sections(
     *,
     repo: Path,
@@ -247,14 +395,15 @@ def sync_release_pr_mechanical_sections(
     base_branch: str,
     head_branch: str,
     repo_slug: str,
-    solo_mode: bool,
+    solo_mode: bool | None,
+    ledger_url: str = LIVE_LEDGER_URL,
 ) -> str | None:
     """
     Refresh only the mechanically-derived sections (Branch integration,
     Changed-file manifest -- and, in multi-operator mode, Git-work lease)
-    of the single open staging->main release PR, preserving Outcome,
+    of the single open integration-to-release PR, preserving Outcome,
     Coordination and scope, and Evidence exactly as a human last wrote
-    them. Intended for CI to run on every push to staging, so the
+    them. Intended for CI to run on every push to the integration branch, so the
     manifest/SHA fields never go stale between real review passes --
     without silently discarding curated evidence content on every push.
 
@@ -267,104 +416,112 @@ def sync_release_pr_mechanical_sections(
         return None
     if len(existing) > 1:
         raise ReleasePreparationError(
-            "multiple open staging release PRs exist; close or reconcile them before continuing"
+            "multiple open release PRs exist; close or reconcile them before continuing"
         )
     pr_number = existing[0]
 
-    old_body = run(
-        "gh", "pr", "view", str(pr_number), "--repo", repo_slug, "--json", "body", "-q", ".body"
-    )
-
-    context = collect_release_context(repo, remote, base_branch, head_branch)
-    # Placeholder evidence: this fresh render exists only to extract the
-    # mechanically-derived sections from; the real Evidence text below
-    # comes from the existing PR body, not this placeholder.
-    fresh_body = render_release_body(
-        context, lease_id=None, grant_url=None, evidence="__PLACEHOLDER__", solo_mode=solo_mode
-    )
-
-    outcome = body_section(old_body, "Outcome")
-    coordination = body_section(old_body, "Coordination and scope")
-    evidence = body_section(old_body, "Evidence")
-    branch_integration = body_section(fresh_body, "Branch integration")
-    manifest = body_section(fresh_body, "Changed-file manifest")
-
-    lease_block = ""
-    if not solo_mode:
-        lease_block = "\n## Git-work lease\n\n" + body_section(old_body, "Git-work lease") + "\n"
-
-    new_body = f"""## Outcome
-
-{outcome}
-
-## Coordination and scope
-
-{coordination}
-
-## Branch integration
-
-{branch_integration}
-{lease_block}
-## Changed-file manifest
-
-{manifest}
-
-## Evidence
-
-{evidence}
-"""
-    body_size = len(new_body.encode("utf-8"))
-    if body_size > MAX_PR_BODY_BYTES:
-        raise ReleasePreparationError(
-            f"refreshed release PR body is {body_size} bytes; limit is {MAX_PR_BODY_BYTES}; "
-            "narrow or separately archive the accumulated Evidence/Outcome content before publication"
+    for attempt in range(2):
+        context = collect_release_context(repo, remote, base_branch, head_branch)
+        observed = live_release_pr_metadata(repo_slug, pr_number)
+        if observed["headRefOid"] != context.head_sha:
+            if attempt == 0:
+                continue
+            raise ReleasePreparationError(
+                f"release PR head changed during synchronization: fetched {context.head_sha}, "
+                f"live {observed['headRefOid']}"
+            )
+        old_body = observed["body"]
+        effective_solo = solo_mode if solo_mode is not None else infer_release_sync_solo_mode(old_body)
+        lease_id = None
+        grant_url = None
+        if not effective_solo:
+            lease_id, grant_url = parse_release_lease_section(
+                body_section(old_body, "Git-work lease"),
+                ledger_url=ledger_url,
+            )
+        branch_integration, _, manifest, _ = render_release_mechanical_sections(
+            context,
+            lease_id=lease_id,
+            grant_url=grant_url,
+            solo_mode=effective_solo,
+            ledger_url=ledger_url,
         )
-    body_file = materialize_release_body(new_body)
-    try:
-        run("gh", "pr", "edit", str(pr_number), "--repo", repo_slug, "--body-file", str(body_file))
-    finally:
-        body_file.unlink(missing_ok=True)
-    result = f"refreshed mechanical sections of PR #{pr_number}"
-    rerun_note = rerun_stale_check(repo_slug=repo_slug, head_branch=head_branch, head_sha=context.head_sha)
-    if rerun_note:
-        result += f"; {rerun_note}"
-    return result
+        new_body = replace_body_section(old_body, "Branch integration", branch_integration)
+        new_body = replace_body_section(new_body, "Changed-file manifest", manifest)
+        preflight = live_release_pr_metadata(repo_slug, pr_number)
+        if preflight != observed:
+            if attempt == 0:
+                continue
+            raise ReleasePreparationError(
+                "release PR body or head changed during synchronization; retry from fresh state"
+            )
+        body_size = len(new_body.encode("utf-8"))
+        if body_size > MAX_PR_BODY_BYTES:
+            raise ReleasePreparationError(
+                f"refreshed release PR body is {body_size} bytes; limit is {MAX_PR_BODY_BYTES}"
+            )
+        if new_body == old_body:
+            result = f"release PR #{pr_number} mechanical sections already current"
+        else:
+            body_file = materialize_release_body(new_body)
+            try:
+                run("gh", "pr", "edit", str(pr_number), "--repo", repo_slug, "--body-file", str(body_file))
+            finally:
+                body_file.unlink(missing_ok=True)
+            after = live_release_pr_metadata(repo_slug, pr_number)
+            if after["headRefOid"] != context.head_sha:
+                raise ReleasePreparationError(
+                    "release PR head changed while publishing mechanical sections; refreshed review is required"
+                )
+            result = f"refreshed mechanical sections of PR #{pr_number}"
+        dispatch = dispatch_governance_validation(
+            repo_slug=repo_slug,
+            head_branch=head_branch,
+            head_sha=context.head_sha,
+        )
+        return f"{result}; {dispatch}"
+    raise ReleasePreparationError("release synchronization did not reach a stable PR state")
 
 
-def rerun_stale_check(
+def dispatch_governance_validation(
     *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
-) -> str | None:
-    """
-    Find the most recent run of `workflow_file` for `head_branch` whose head
-    SHA matches `head_sha`, and re-run it if it previously failed.
+) -> str:
+    """Dispatch the trusted pull-request workflow for this exact head.
 
-    This exists because editing a PR body via `gh pr edit` with the ambient
-    GITHUB_TOKEN does *not* trigger a new `pull_request` "edited" event --
-    GitHub explicitly suppresses workflow-triggering for anything done by the
-    default token, to prevent infinite loops (see GitHub's docs on
-    triggering a workflow from a workflow). Without this, a stale "Git
-    operations covenant" failure sits on the PR forever, even after the
-    manifest that caused it is fixed.
-
-    Returns a message describing what happened, or None if there's no
-    matching run or it didn't previously fail (nothing to do).
+    Completed runs are rerun regardless of their prior conclusion. An existing
+    queued run or a run GitHub has not exposed yet is reported as a bounded
+    pending state. Candidate-branch workflow code is never dispatched.
     """
     raw = run(
         "gh", "run", "list", "--repo", repo_slug, "--branch", head_branch,
         "--workflow", workflow_file, "--json", "databaseId,headSha,conclusion,status", "--limit", "10",
     )
     match = next((r for r in json.loads(raw) if r["headSha"] == head_sha), None)
-    if match is None or match["status"] != "completed" or match["conclusion"] != "failure":
-        return None
+    if match is None:
+        return f"governance validation pending for {head_sha[:8]}: exact-head run not visible yet"
     run_id = match["databaseId"]
+    if match["status"] != "completed":
+        return f"governance validation pending in run {run_id} for {head_sha[:8]}"
     try:
         run("gh", "run", "rerun", str(run_id), "--repo", repo_slug)
     except ReleasePreparationError as exc:
-        # A rerun failing (e.g. the run aged out of GitHub's ~30-day rerun
-        # window) shouldn't turn an otherwise-successful manifest sync into
-        # a reported failure -- surface it as a note, not an exception.
-        return f"manifest refreshed, but could not re-trigger stale {workflow_file} run {run_id}: {exc}"
-    return f"re-triggered stale {workflow_file} run {run_id} for {head_sha[:8]} (GITHUB_TOKEN edits don't trigger it themselves)"
+        raise ReleasePreparationError(
+            f"release metadata updated but exact-head governance run {run_id} could not be dispatched: {exc}"
+        ) from exc
+    return f"dispatched trusted governance run {run_id} for {head_sha[:8]}; result pending"
+
+
+def rerun_stale_check(
+    *, repo_slug: str, head_branch: str, head_sha: str, workflow_file: str = "git-governance.yml"
+) -> str:
+    """Compatibility alias for deterministic exact-head dispatch."""
+
+    return dispatch_governance_validation(
+        repo_slug=repo_slug,
+        head_branch=head_branch,
+        head_sha=head_sha,
+        workflow_file=workflow_file,
+    )
 
 
 def materialize_release_body(body: str) -> Path:
@@ -437,7 +594,7 @@ def publish_release_pr(
     existing = open_release_pr_numbers(repo_slug, base_branch, head_branch)
     if len(existing) > 1:
         raise ReleasePreparationError(
-            "multiple open staging release PRs exist; close or reconcile them before continuing"
+            "multiple open release PRs exist; close or reconcile them before continuing"
         )
     if existing:
         return run(
@@ -472,10 +629,11 @@ def publish_release_pr(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".", help="Local repository path")
-    parser.add_argument("--repo-slug", required=True, help="owner/repo, e.g. <org>/<repo>")
-    parser.add_argument("--remote", default="origin")
-    parser.add_argument("--base", default="main", choices=("main", "master"))
-    parser.add_argument("--head", default="staging", choices=("staging",))
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--repo-slug", help="owner/repo; overrides project config")
+    parser.add_argument("--remote", help="Git remote; overrides project config")
+    parser.add_argument("--base", help="Release branch; overrides project config")
+    parser.add_argument("--head", help="Integration branch; overrides project config")
     parser.add_argument(
         "--lease-id",
         help="Required unless --solo-mode (a single-operator repo has no lease ledger)",
@@ -486,18 +644,39 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--solo-mode",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help=(
             "Single-operator repo: omit the lease-ledger section entirely instead of "
-            "requiring --lease-id/--grant-url. Must match SOLO_MODE in "
-            "scripts/check_git_governance.py or the governance check will still demand "
-            "a lease section this body doesn't have."
+            "requiring --lease-id/--grant-url. Defaults to the configured profile. "
+            "With --sync-mechanical, omitting "
+            "both mode flags safely infers the mode from the existing PR body."
         ),
     )
     parser.add_argument(
         "--evidence",
-        default="Current-head CI and staging release verification pending",
+        help="Meaningful current-head tests and integration verification summary",
     )
+    parser.add_argument("--scope-reference", help="Approved mission, release, or scope record")
+    parser.add_argument(
+        "--authorized-path",
+        action="append",
+        help="Approved exact path or directory/** prefix; repeat for each boundary",
+    )
+    parser.add_argument("--reviewer", help="Named independent release reviewer")
+    parser.add_argument(
+        "--reviewer-independence",
+        choices=("independent", "not-required"),
+        default="independent",
+    )
+    parser.add_argument(
+        "--decision",
+        choices=("approve", "block", "needs-work"),
+        default="approve",
+    )
+    parser.add_argument("--evidence-ref", action="append", help="Review evidence reference; repeatable")
+    parser.add_argument("--decision-timestamp", help="ISO-8601 review decision timestamp")
+    parser.add_argument("--decision-expiry", default="None", help="ISO-8601 expiry or None")
     parser.add_argument("--title")
     parser.add_argument(
         "--dry-run",
@@ -511,21 +690,11 @@ def parse_args() -> argparse.Namespace:
             "Refresh only the Branch integration / Changed-file manifest sections of the "
             "single open release PR, preserving Outcome / Coordination and scope / Evidence "
             "exactly as last written. No-op (not an error) if no release PR is currently open. "
-            "Intended for CI on every push to staging, so manifests never go stale between real "
+            "Intended for CI on every push to the configured integration branch, so manifests never go stale between real "
             "review passes without silently discarding curated evidence."
         ),
     )
     args = parser.parse_args()
-    if not args.solo_mode and (not args.lease_id or not args.grant_url):
-        parser.error("--lease-id and --grant-url are required unless --solo-mode is set")
-    if args.sync_mechanical and not args.solo_mode:
-        parser.error(
-            "--sync-mechanical currently only supports --solo-mode; "
-            "sync_release_pr_mechanical_sections() doesn't thread --lease-id/--grant-url "
-            "through to render_release_body(), so multi-operator mode would fail with an "
-            "unhandled assertion instead of a clean error. Wire lease/grant support through "
-            "before using --sync-mechanical outside solo-mode."
-        )
     return args
 
 
@@ -533,40 +702,77 @@ def main() -> None:
     args = parse_args()
     repo = Path(args.repo).resolve()
     try:
+        config = load_framework_config(repo=repo, path=args.config, required=False)
+        repo_slug = args.repo_slug or config.repository.slug
+        remote = args.remote or config.repository.remote
+        base_branch = args.base or config.repository.release_branch
+        head_branch = args.head or config.repository.integration_branch
+        solo_mode = config.solo_mode if args.solo_mode is None else args.solo_mode
+        ledger_url = config.git_governance.ledger_url or LIVE_LEDGER_URL
+        if not solo_mode and not args.sync_mechanical and (
+            not args.lease_id or not args.grant_url
+        ):
+            raise ReleasePreparationError(
+                "--lease-id and --grant-url are required in multi-operator mode"
+            )
+        if not args.sync_mechanical:
+            required = {
+                "--scope-reference": args.scope_reference,
+                "--authorized-path": args.authorized_path,
+                "--reviewer": args.reviewer,
+                "--evidence-ref": args.evidence_ref,
+                "--decision-timestamp": args.decision_timestamp,
+                "--evidence": args.evidence,
+            }
+            missing = [name for name, value in required.items() if not value]
+            if missing:
+                raise ReleasePreparationError(
+                    "structured release authorization requires " + ", ".join(missing)
+                )
         if args.sync_mechanical:
             result = sync_release_pr_mechanical_sections(
                 repo=repo,
-                remote=args.remote,
-                base_branch=args.base,
-                head_branch=args.head,
-                repo_slug=args.repo_slug,
+                remote=remote,
+                base_branch=base_branch,
+                head_branch=head_branch,
+                repo_slug=repo_slug,
                 solo_mode=args.solo_mode,
+                ledger_url=ledger_url,
             )
             print(result if result else "no open release PR to refresh; nothing to do")
             return
-        context = collect_release_context(repo, args.remote, args.base, args.head)
+        context = collect_release_context(repo, remote, base_branch, head_branch)
         body = render_release_body(
             context,
             lease_id=args.lease_id,
             grant_url=args.grant_url,
             evidence=args.evidence,
-            solo_mode=args.solo_mode,
+            solo_mode=solo_mode,
+            ledger_url=ledger_url,
+            scope_reference=args.scope_reference,
+            authorized_paths=tuple(args.authorized_path),
+            reviewer=args.reviewer,
+            reviewer_independence=args.reviewer_independence,
+            decision=args.decision,
+            evidence_references="; ".join(args.evidence_ref),
+            decision_timestamp=args.decision_timestamp,
+            decision_expiry=args.decision_expiry,
         )
         if args.dry_run:
             print(body, end="")
             return
         result = publish_rendered_release_pr(
             body,
-            repo_slug=args.repo_slug,
-            base_branch=args.base,
-            head_branch=args.head,
-            title=args.title or f"Release staging to {args.base}",
+            repo_slug=repo_slug,
+            base_branch=base_branch,
+            head_branch=head_branch,
+            title=args.title or f"Release {head_branch} to {base_branch}",
         )
         print(result)
         print(f"release base: {context.base_ref} @ {context.base_sha}")
         print(f"release head: {context.head_ref} @ {context.head_sha}")
         print(f"manifest: {len(context.files)} files from merge base {context.merge_base}")
-    except (ReleasePreparationError, OSError, json.JSONDecodeError) as exc:
+    except (FrameworkConfigError, ReleasePreparationError, OSError, json.JSONDecodeError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 

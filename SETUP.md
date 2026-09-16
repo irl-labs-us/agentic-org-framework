@@ -99,8 +99,7 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
 
 1. **Confirm the repo.** Ask for `<org>/<repo>` (the actual GitHub owner/repo this project will live in) and the integration branch names if they differ from `staging`/`main`.
 2. **Confirm names.** You already have CEO, Strategy & Portfolio Lead, and Merge Steward from Section 2, and the product name from Section 0.
-3. **Ask: solo-operator or multi-operator?** This is the one fork that changes the rest of this section — see `FRAMEWORK.md` §III.8's solo-vs-multi-operator note and `templates/GIT_OPERATIONS_COVENANT.md`'s "Solo-operator mode" section for the full reasoning. Ask directly: *is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you?* If genuinely no (one human directing agent sessions solo), it's solo-operator mode. If yes, it's multi-operator mode (the default described in the rest of this section). Don't default to multi-operator ceremony a solo project will never use — but don't talk a genuinely multi-person team out of it either.
-   - **If solo-operator:** skip steps 4–5 below entirely (no ledger issue, no lease-ledger placeholder substitution). Instead: set `SOLO_MODE = True` in `scripts/check_git_governance.py`, and tell the user every `scripts/create_release_pr.py` invocation needs `--solo-mode` (drop `--lease-id`/`--grant-url`). Still do steps 1–2, 6, and 7 (repo/name confirmation, placeholder substitution for `{CEO}`/`{Your Product}`/remote name only, the release-path bootstrap note, and moving files into place) — solo mode is a narrower ceremony, not "skip Section 5."
+3. **Choose a profile.** Ask: *is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you?* Use `solo` when the answer is no and `multi` when it is yes. Offer `lightweight` only when the user wants the mandatory governance and git controls without the broader operating ceremony. The profile belongs in `.agentic-org.json`; scripts derive operator mode from it.
    - **If multi-operator:** continue with steps 4–5 below as written.
 4. **Create the live Git-work lease ledger** (multi-operator only). This is a single pinned GitHub issue that acts as the source of truth for who holds which worktree/branch. Tell the user to create it now — give them this to paste in:
 
@@ -113,23 +112,17 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
    ```
 
    Ask the user to pin it and report back the issue number.
-5. **Substitute placeholders.** With the issue number in hand (multi-operator) or without one (solo-operator, skip the `<lease-ledger-issue-number>` substitution), if you have file access, do a project-wide find-and-replace across `templates/GIT_OPERATIONS_COVENANT.md`, `templates/GIT_WORK_REGISTRY.md`, `templates/MISSION_PACKET_TEMPLATE.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`):
-   - `<org>/<repo>` → the real slug
-   - `<lease-ledger-issue-number>` → the real issue number (multi-operator only)
-   - `{CEO}` → the CEO's real name
-   - `{Strategy & Portfolio Lead}` → that person's real name
-   - `{Your Product}` → the product name
-   - `origin` remote defaults in `scripts/create_feature_worktree.py` / `scripts/check_pr_readiness.py` / `scripts/create_release_pr.py` → the actual git remote name if it isn't `origin`
-   If you don't have file access, print the exact `sed`/find-replace commands for the user to run themselves.
-6. **Move the filled-in files into place:**
-   - `templates/GIT_OPERATIONS_COVENANT.md` → `docs/coordination/GIT_OPERATIONS_COVENANT.md`
-   - `templates/GIT_WORK_REGISTRY.md` → `docs/coordination/GIT_WORK_REGISTRY.md` (solo-operator: skip — nothing to snapshot without a ledger)
-   - `templates/MISSION_PACKET_TEMPLATE.md` → `docs/coordination/MISSION_PACKET_TEMPLATE.md`
-   - `templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` → `docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md`
-   - `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are (GitHub requires the `.github/` location).
-   - `scripts/*.py` stay in `scripts/`.
-7. **Flag the release-path bootstrap note.** If this project has an *existing* `main`/`staging` history that has already diverged by more than one prior release, tell the user now to read the "Adopting this checker on an existing repository" note in `docs/coordination/GIT_OPERATIONS_COVENANT.md` before their first governed release PR — it needs a one-time recorded exception. A brand-new repo doesn't need this.
-8. **Offer the manifest-staleness automation (optional, but recommended once git activity picks up).** Ask: does this project expect enough concurrent git activity (multiple feature branches, or a release PR that stays open while `staging` keeps moving) that the covenant's exact-match `## Changed-file manifest` requirement will go stale often, not just occasionally? If yes, also move `.github/workflows/release-pr-sync.yml` and `.github/workflows/feature-pr-manifest-sync.yml` into place (same `.github/` location requirement) and confirm `scripts/sync_pr_manifest.py` was already copied in with the rest of `scripts/*.py`. See `GIT_OPERATIONS_COVENANT.md`'s "Keeping the Changed-file manifest from going stale" section for what these do and why the rerun step matters — a project that skips this will eventually see a passing PR's covenant check stuck on a stale failure and need to fix it manually (or one-time-adopt this automation retroactively then).
+5. **Write `.agentic-org.json`.** Copy `.agentic-org.example.json` and fill in the selected profile, product, repository slug, remote, branch names, leadership, path policy, and modules. A `multi` profile requires the full numeric ledger issue URL; `solo` and `lightweight` require `null`. Lightweight may omit `strategy_lead`, `assurance_owner`, path lists, and false optional-module fields; safe defaults apply. Enable `customer_feedback`, `ai_output_discipline`, and `manifest_sync` only when the interview establishes a need. `agent_governance` stays enabled.
+6. **Run the scaffold.** Run `python3 scripts/scaffold_framework.py --target .` and review its dry-run output with the user. Then run it with `--apply`. It renders placeholders and branch names, installs profile/module-specific artifacts, generates concise `AGENTS.md` links, and records ownership in `.agentic-org.generated.json`. It refuses to overwrite a customized `AGENTS.md` or any other human-edited generated file. In an existing repository, review each conflict against the generated source and pass `--preserve-existing PATH` only when the existing file remains authoritative and satisfies the same control. Add the startup link to a preserved `AGENTS.md` or `CLAUDE.md` yourself. Preserved paths remain human-owned and doctor reports them as manual controls.
+7. **Flag the release-path bootstrap note.** If the configured release/integration branch history has already diverged by more than one prior release, tell the user now to read the "Adopting this checker on an existing repository" note in `docs/coordination/GIT_OPERATIONS_COVENANT.md` before their first governed release PR — it needs a one-time recorded exception. A brand-new repo doesn't need this.
+8. **Validate the installation.** Run `python3 scripts/framework_doctor.py --repo .`. Fix every reported missing artifact, unresolved placeholder, module mismatch, or generated-file drift. After GitHub branch protection is configured, run it again with `--github` to verify both protected branches require the `Git operations covenant` status check. If manifest staleness is likely, set `modules.manifest_sync` to `true` and rerun the scaffold; the optional workflow templates are inactive until enabled this way.
+
+For every pull request, complete the generated template's `Authorized scope`
+and `Risk and review evidence` sections. Scope authorization is distinct from
+the changed-file manifest: refreshing a manifest never expands approval. Bind
+review evidence to the exact current head SHA, and record a new decision after
+every push. The checker verifies structure, allowed values, scope, and candidate
+binding; the reviewer and Merge Steward remain accountable for evidence truth.
 
 ---
 
@@ -140,22 +133,29 @@ Ask first: **does this product have direct end users it will get feedback from**
 If yes:
 
 1. **Confirm names.** You already have the CEO from Section 2 and the product name from Section 0; that's everything the templates need.
-2. **Copy the templates into place**, if you have file access:
-   - `templates/customer-feedback/FEEDBACK_HARNESS_TEMPLATE.md` → `docs/customer-feedback/FEEDBACK_HARNESS.md`
-   - `templates/customer-feedback/BUILD_AGENT_INSTRUCTIONS_TEMPLATE.md` → `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md`
-   - `templates/customer-feedback/HAPPY_PATH_REGISTRY_TEMPLATE.md` → `docs/customer-feedback/HAPPY_PATHS.md` (or a name matching the product)
-   - `templates/customer-feedback/{feedback-record,happy-path,weekly-review}.md` → `docs/customer-feedback/templates/` (as-is, no placeholders to fill)
-   - `scripts/customer_feedback_harness.py` and `scripts/build_weekly_feedback_review.py` stay in `scripts/`.
-   If you don't have file access, print the exact copy/find-replace commands for the user to run themselves.
-3. **Substitute placeholders** across the three copied `docs/customer-feedback/*.md` files: `{Your Product}` → the product name, `{CEO}` → the CEO's real name.
-4. **Wire it into the agent convention file.** Add a one-line pointer to `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` in the project's `AGENTS.md`/`CLAUDE.md` (or equivalent), the same way this repo's own `AGENTS.md`/`CLAUDE.md` point at `SETUP.md` — so every agent auto-loads it before touching a customer-facing surface, not only when someone remembers to mention it.
-5. **Pick a `pseudonym_namespace`.** A short, permanent, product-specific string (e.g. the product's slug) — tell the user this is a one-way door: changing it later re-pseudonymizes every existing feedback record's `reporter_ref` and breaks continuity with prior weekly reviews. Record it as the default in whatever wrapper script or CI job will call `build_weekly_feedback_review.py`.
-6. **Ask about product-specific private-content fields.** Does this product handle anything the generic safety baseline wouldn't already catch (a resume, a health record, a financial document)? If so, note it as an `extra_forbidden_fragments` list to pass to the harness — don't guess; leave it `TBD` if the user is unsure.
-7. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 8's first mission packet proves the rest of the framework.
+2. **Enable the module.** Set `modules.customer_feedback` to `true` in `.agentic-org.json`, rerun the scaffold in dry-run mode, review the added files, then apply. The scaffold renders the product and leadership placeholders and adds the customer-facing instruction to `docs/coordination/AGENT_STARTUP.md`.
+3. **Wire startup once.** Confirm the project's `AGENTS.md`/`CLAUDE.md` points to `docs/coordination/AGENT_STARTUP.md`; do not duplicate all module links in the convention file.
+4. **Pick a `pseudonym_namespace`.** A short, permanent, product-specific string (e.g. the product's slug) — tell the user this is a one-way door: changing it later re-pseudonymizes every existing feedback record's `reporter_ref` and breaks continuity with prior weekly reviews. Record it as the default in whatever wrapper script or CI job will call `build_weekly_feedback_review.py`.
+5. **Ask about product-specific private-content fields.** Does this product handle anything the generic safety baseline wouldn't already catch (a resume, a health record, a financial document)? If so, note it as an `extra_forbidden_fragments` list to pass to the harness — don't guess; leave it `TBD` if the user is unsure.
+6. **Draft the first happy path (optional but recommended).** If the user can describe the first customer journey they care about, fill in one entry of `docs/customer-feedback/HAPPY_PATHS.md` live, marked `status: proposed` — this proves the registry end to end the same way Section 9's first mission packet proves the rest of the framework.
 
 ---
 
-## Section 7 — Agent governance (`FRAMEWORK.md` §III.11, mandatory before production)
+## Section 7 — AI-generated output discipline (`FRAMEWORK.md` §III.10, optional)
+
+Ask: **will any mission produce a customer-visible creative surface such as UI,
+visual design, generated media, or product copy?** If no, leave
+`modules.ai_output_discipline` false and record why. If yes, set it to true,
+rerun the scaffold in dry-run mode, review, and apply. Confirm the generated
+`docs/design/AI_OUTPUT_DISCIPLINE.md` is linked through
+`docs/coordination/AGENT_STARTUP.md`. Ask the owner to name project-specific
+AI tells, critic criteria, the required subtraction pass, and the human copy
+editor or visual approver. Do not enable this module merely because agents are
+used for backend or infrastructure work.
+
+---
+
+## Section 8 — Agent governance (`FRAMEWORK.md` §III.11, mandatory before production)
 
 Explain that this step turns three separate concerns into an operating system:
 **policy** defines what agents may do, **process** defines who decides and how,
@@ -189,13 +189,11 @@ Work through one layer at a time; do not ask all questions at once.
    wire severity to `FRAMEWORK.md` Part V, and choose the independent outcome
    audit cadence (monthly or quarterly). Add governance monitoring to the Weekly
    Portfolio Review and require re-gating after material changes or incidents.
-6. **Write and wire the charter.** Copy
-   `templates/AGENT_GOVERNANCE_TEMPLATE.md` to
-   `docs/governance/AGENT_GOVERNANCE.md`, replace `{Your Product}`, `{CEO}`,
-   `{Strategy & Portfolio Lead}`, and `{Assurance Owner}`, then fill the policy,
-   decision, control, and version tables. Add a one-line pointer to the charter
-   in `AGENTS.md`/`CLAUDE.md` so every in-scope agent reads it before substantive
-   work.
+6. **Complete the generated charter.** Fill the policy, decision, control, and
+   version tables in `docs/governance/AGENT_GOVERNANCE.md`. Confirm
+   `docs/coordination/AGENT_STARTUP.md` links it and the project's
+   `AGENTS.md`/`CLAUDE.md` links that startup file, so every in-scope agent reads
+   it before substantive work.
 7. **Approval state.** Mark the charter `Proposed` until the CEO and independent
    Assurance owner accept their respective gates. Record any open fields and
    state plainly that production use is blocked until all required fields are
@@ -204,13 +202,13 @@ Work through one layer at a time; do not ask all questions at once.
 
 ---
 
-## Section 8 — First mission packet (optional, recommended)
+## Section 9 — First mission packet (optional, recommended)
 
-Offer to draft the very first Mission Packet (`docs/coordination/MISSION_PACKET_TEMPLATE.md`, condensed version in `FRAMEWORK.md` Appendix D) for whatever the user wants to build first. This is the fastest way to prove the whole framework works end to end rather than leaving it as an unused constitution. Ask what the first piece of work is, and fill in the template live with the user — including the git lease fields from Section 5, now that the ledger exists.
+Offer to draft the first mission packet for whatever the user wants to build. Lightweight uses `docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md`; solo and multi use `docs/coordination/MISSION_PACKET_TEMPLATE.md` and the condensed version in `FRAMEWORK.md` Appendix D. Fill it in live, including applicable Git scope and lease fields.
 
 ---
 
-## Section 9 — Handoff summary
+## Section 10 — Handoff summary
 
 Close with:
 

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "profile": "solo",
+  "product_name": "Your Product",
+  "repository": {
+    "slug": "your-org/your-repo",
+    "remote": "origin",
+    "integration_branch": "staging",
+    "release_branch": "main"
+  },
+  "leadership": {
+    "principal": "Your Name",
+    "strategy_lead": "Your Name",
+    "assurance_owner": "Independent Reviewer"
+  },
+  "git_governance": {
+    "ledger_url": null,
+    "high_risk_paths": [
+      ".github/",
+      "supabase/migrations/",
+      "AGENTS.md",
+      "backend/server.py",
+      "backend/db.py",
+      "backend/db_postgres.py",
+      "docs/coordination/ACTIVE_TEAM.md",
+      "docs/coordination/AGENT_EVALUATION_COVENANT.md",
+      "docs/coordination/AGENT_OPERATING_CHARTER.md",
+      "docs/coordination/CORE_ORG.md",
+      "docs/coordination/DEBUG_PROTOCOL.md",
+      "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+      "docs/coordination/GIT_WORK_REGISTRY.md"
+    ],
+    "forbidden_paths": [
+      ".env",
+      ".idea/",
+      "node_modules/"
+    ]
+  },
+  "modules": {
+    "customer_feedback": false,
+    "ai_output_discipline": false,
+    "manifest_sync": false,
+    "agent_governance": true
+  }
+}
