@@ -32,7 +32,11 @@ jobs:
     # repo's own full name, so it only suppresses the check here; any project created
     # from "Use this template" gets a different github.repository value and the
     # check runs normally there.
-    if: github.repository != 'irl-labs-us/agentic-org-framework'
+    # A draft is explicitly allowed to carry Decision: needs-work while review
+    # is in progress. Enforce only after the author marks it ready; the
+    # ready_for_review trigger below guarantees a fresh exact-head run, and all
+    # subsequent synchronize/edited events continue to fail closed.
+    if: github.repository != 'irl-labs-us/agentic-org-framework' && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
