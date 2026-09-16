@@ -125,6 +125,7 @@ def test_non_multi_profiles_render_without_lease_contract(tmp_path: Path, profil
     covenant = files["docs/coordination/GIT_OPERATIONS_COVENANT.md"].decode()
     assert "\n## Git-work lease\n" not in pull_request_template
     assert "Git-work lease: N/A — solo-operator mode" in pull_request_template
+    assert "Multi-operator mode (default)" not in pull_request_template
     assert "N/A (solo-operator mode)#issuecomment" not in covenant
     assert "](N/A (solo-operator mode))" not in covenant
     assert "`## Git-work lease` (multi-operator mode only)" in covenant

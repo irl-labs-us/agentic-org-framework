@@ -94,6 +94,15 @@ def _render_profile(text: str, destination: str, config: FrameworkConfig) -> str
         return text
     if destination == ".github/pull_request_template.md":
         text = re.sub(
+            r"- Multi-operator mode \(default\):.*?section when the configured profile is `multi`\.\n",
+            "- Solo-operator mode is configured: keep the single `Git-work lease: N/A — "
+            "solo-operator mode` line under `## Branch integration`; no lease section or "
+            "ledger link is required.\n",
+            text,
+            count=1,
+            flags=re.DOTALL,
+        )
+        text = re.sub(
             r"- Git-work lease ID:\n- Live-ledger lease grant: .*\n",
             "- Git-work lease: N/A — solo-operator mode\n",
             text,
