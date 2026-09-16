@@ -14,7 +14,7 @@ This file is a periodic audit snapshot, not the live authority source. Lease req
 |---|---|---|---|---|---|---|
 | {CEO}, CEO | Sole merge authority | {date} | Until explicitly replaced | {CEO} | `staging` and `main`; all repositories in this project | active |
 
-The Strategy & Portfolio Lead maintains the live ledger and this snapshot but may not merge unless a time-bounded, non-overlapping delegation is active in the ledger. Exactly one steward may be active for a target/scope. A delegation suspends the CEO's operational authority for that scope until revocation or expiry, then authority returns to the CEO automatically.
+The Strategy & Portfolio Lead role maintains the live ledger and this snapshot; that role alone grants no merge authority. A person who also holds the active Merge Steward role may merge under that separate authority. Exactly one steward may be active for a target/scope. A delegation suspends the CEO's operational authority for that scope until revocation or expiry, then authority returns to the CEO automatically.
 
 ## Integration queue
 

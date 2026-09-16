@@ -12,8 +12,18 @@
       "status": "checked"
     },
     {
+      "id": "repository-readiness",
+      "module": "single-human",
+      "control": "Fresh-target ancestry and clean-worktree readiness",
+      "risk": "Publishing stale, divergent, or unrelated work",
+      "owner": "Operator and local automation",
+      "evidence": "check_pr_readiness.py output and required product CI",
+      "failure": "Operator repairs or recreates the branch before merge",
+      "status": "checked locally; merge decision manual"
+    },
+    {
       "id": "git-governance",
-      "module": "always",
+      "module": "multi-human",
       "control": "Trusted-base Git operations covenant",
       "risk": "Stale, stacked, reused, or unauthorized integration",
       "owner": "CI and Merge Steward",
@@ -23,7 +33,7 @@
     },
     {
       "id": "authorized-scope",
-      "module": "always",
+      "module": "multi-human",
       "control": "Changed files remain inside approved scope",
       "risk": "Undeclared scope expansion",
       "owner": "CI and accountable owner",
@@ -33,7 +43,7 @@
     },
     {
       "id": "candidate-bound-review",
-      "module": "always",
+      "module": "multi-human",
       "control": "Structured review bound to current head",
       "risk": "Stale or incomplete approval evidence",
       "owner": "CI and named reviewer",
@@ -53,7 +63,7 @@
     },
     {
       "id": "lease-ledger",
-      "module": "multi",
+      "module": "multi-human",
       "control": "Live Git-work lease ledger",
       "risk": "Concurrent writers and ambiguous merge authority",
       "owner": "Merge Steward",

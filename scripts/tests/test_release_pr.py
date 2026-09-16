@@ -74,8 +74,8 @@ Human evidence text.
             body_path = Path(command[command.index("--body-file") + 1])
             updated_body.append(body_path.read_text(encoding="utf-8"))
             return "updated"
-        if command[:3] == ("gh", "run", "list"):
-            return json.dumps([])
+        if command[:2] == ("gh", "api"):
+            return json.dumps({"workflow_runs": []})
         raise AssertionError(f"unexpected command: {command}")
 
     monkeypatch.setattr(release, "run", fake_run)

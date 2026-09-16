@@ -9,27 +9,22 @@
 
 Git is an integration boundary, not a transport shortcut. A task pass, QA pass, clean local test run, or completed handoff does not authorize a merge. This covenant keeps the reviewed, tested, merged, and deployed commits traceable and prevents branches or worktrees from becoming unowned continuing workspaces.
 
-## Solo-operator mode
+## Single-human operator mode
 
-Everything below describes **multi-operator mode**: a repo with more than one person (or a person plus other agents/operators) who could plausibly hold write access at once, where the Merge Steward role, delegation, and the live-ledger lease grant exist to make "who is authorized to merge this, right now" a fact instead of a guess between them.
+Everything below describes **multi-human operator mode**: a repository where more than one person can hold write or integration authority. Agent count does not determine this mode; one human directing many agent sessions is still single-human operation.
 
-If this repo has exactly one human operator directing agent sessions — nobody else who could hold Merge Steward or grant a lease — adopt **solo-operator mode** instead:
+If this repo has exactly one human operator directing agent sessions, set `git_governance.operator_mode` to `single-human`. The scaffold omits this covenant, the ledger, governance-specific PR sections, hand-maintained manifests, and coordination workflows. It retains local branch/readiness checks, ordinary product CI, and an explicit high-risk review field in the concise PR template. Keep the agent `profile` independent; a multi-agent organization may still use single-human Git operation.
 
-- **Drop:** the live Git-work lease ledger (no pinned tracking issue, no `LEASE REQUEST`/`LEASE GRANTED` comment ceremony), Merge Steward delegation (there is no one to delegate to or from), and the `## Git-work lease` requirement in pull-request bodies. Set `profile` to `solo` in `.agentic-org.json`; scripts and CI derive this behavior from the shared configuration.
-- **Keep, unconditionally:** single-use branches created from a freshly fetched exact base SHA, the changed-file manifest matching the real diff, the ban on undeclared merge commits and stacked PRs, the release path's merge-base scoping, and the high-risk-scope classification. These are what actually caught RoleWise's real failure — parallel branches drifting from the base without reconciling — and that failure mode is just as real for one operator running multiple parallel agent sessions as it is for multiple humans. The solo profile removes only the lease-ledger check; every other check in `validate()` stays mandatory regardless.
-- **Replace "Merge Steward decision" with "operator sign-off."** {CEO} (or whoever the sole operator is) is permanently the only merge authority — there's no rotation, no delegation, and no second identity to check a lease grant against. The merge-steward checklist below still applies; just read every "Merge Steward" reference as "the operator, deliberately slowing down before merging" rather than a role handoff.
-- **High-risk review has no second human by construction.** Where multi-operator mode requires a *named independent reviewer* for high-risk scope, solo mode substitutes a deliberate second pass — reread the diff after a break, or route it through a fresh agent session with no memory of writing it, before merging. This is weaker than genuine independent review and the covenant does not pretend otherwise; it's the honest floor for one operator, not a target to relax toward if a second reviewer becomes available.
-
-If a second operator joins later, switch back to multi-operator mode rather than running a hybrid — a lease ledger with only sometimes-enforced grants is worse than either mode cleanly applied.
+If a second human operator joins later, switch `git_governance.operator_mode` to `multi-human` rather than running a hybrid.
 
 ## Authority
 
-*(Multi-operator mode. Skip this section and the Worktree lease section below if you adopted solo-operator mode above.)*
+*(Multi-human operator mode.)*
 
 - The **Merge Steward on duty** is the only person or agent authorized to merge into `staging` or `main`.
 - {CEO} is the interim Merge Steward. A delegate has authority only when the delegation, exact non-overlapping target/scope, start, and expiry are granted in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>).
 - Exactly one Merge Steward may be active for a target/scope. A delegation suspends {CEO}'s operational merge authority only for that scope until it is revoked or expires; authority then returns to {CEO} automatically. Overlapping or ambiguous delegations are invalid.
-- {Strategy & Portfolio Lead} maintains the queue and audit snapshot and arbitrates scope, but has no merge authority unless a valid live-ledger delegation is active.
+- The Strategy & Portfolio Lead role maintains the queue and audit snapshot and arbitrates scope; that role alone grants no merge authority. If one person also holds the active Merge Steward role, that person may merge only under the Merge Steward authority and constraints above.
 - Writers may create commits and open or update pull requests within their mission. Reviewers may approve or block. Neither role may merge its own work.
 - `main` accepts only a release pull request from `staging`. Feature work targets `staging`. Stacked pull requests are prohibited in the minimum viable process; dependent work waits or is recreated from current `staging` after its predecessor merges.
 - Direct pushes to `staging` or `main`, feature-to-`main` pull requests, reverse pull requests from `staging` into feature branches, and unrecorded emergency merges are prohibited.
@@ -57,7 +52,7 @@ If a second operator joins later, switch back to multi-operator mode rather than
 
 ## Worktree lease
 
-*(Multi-operator mode only — skip in solo-operator mode; see above.)*
+*(Multi-human operator mode only.)*
 
 Before substantive repository work, the mission must have a granted lease in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>). A writer posts a `LEASE REQUEST` comment and {Strategy & Portfolio Lead} or the Merge Steward grants it in a separate `LEASE GRANTED` comment. Only the grant creates authority; a feature-branch edit to `GIT_WORK_REGISTRY.md` does not. The grant contains:
 
@@ -161,7 +156,15 @@ The steward stops the merge when any identity, ancestry, scope, approval, test, 
 
 ## Automated and compensating controls
 
-`scripts/check_git_governance.py` and `.github/workflows/git-governance.yml` reject prohibited targets, archive integration, reused feature branches, stale ancestry at check time, undeclared merge commits, unlisted changed files, unauthorized paths, stale or incomplete review records, missing live-ledger references, forbidden local artifacts, and unclassified high-risk scope. These checks supplement protected branches, the pre-merge fresh-target check, manual evidence-quality review, lease-grant verification, and the Merge Steward.
+`scripts/check_git_governance.py` and `.github/workflows/git-governance.yml` reject prohibited targets, archive integration, reused feature branches, stale ancestry at check time, undeclared merge commits, unlisted changed files, unauthorized paths, stale or incomplete review records, missing live-ledger references, forbidden local artifacts, and unclassified high-risk scope. The workflow uses `pull_request_target`, checks out the exact base policy and candidate into separate directories, and executes only the checker and configuration from the trusted base. Candidate files are treated as data. These checks supplement protected branches, the pre-merge fresh-target check, manual evidence-quality review, lease-grant verification, and the Merge Steward.
+
+The governance workflow cannot securely bootstrap itself. On first adoption, no candidate-supplied workflow, checker, repository variable, PR text, label, or status name establishes a trust boundary. A repository administrator must use a two-stage activation:
+
+1. Independently review the exact scaffold-adoption head and land the workflow, checker, configuration, and covenant under the repository's pre-existing protections on the default branch and every protected pull-request base that will use the control. Do not configure `Git operations covenant` as required yet, because the trusted branches cannot emit that check before these files land.
+2. Open a test pull request after those files are present on its base. Confirm that `Git operations covenant` runs from the base-controlled `pull_request_target` workflow, fails on a deliberate policy violation, and passes only after the violation is corrected.
+3. Configure the repository ruleset or branch protection to require the verified governance workflow/check, then enable routine multi-human operation.
+
+After activation, policy changes are evaluated by the previous trusted-base policy and take effect only after merge. Removing or weakening the workflow in a candidate does not alter the base-controlled run evaluating that candidate. If a repository requires fail-closed enforcement on the adoption change itself, use an organization-required workflow or pinned external action that already exists outside the candidate repository; this bundle does not claim to provide that external bootstrap anchor.
 
 The workflow cancels an in-progress governance run when a newer event for the same PR arrives (`concurrency: cancel-in-progress`), and reads the pull request's live body and head SHA together in one API call at execution time rather than trusting the triggering event's snapshot. A run whose event head no longer matches the live head skips enforcement rather than failing — it has been superseded by a newer run, which is now responsible. Without this, a rapid edit-then-push (or two pushes close together) can let an older run's stale event body fail a PR that is already correct at its current head, or evaluate a body/head pairing that never actually coexisted.
 
@@ -173,7 +176,7 @@ The exact-match manifest requirement is a real safety property (it's what actual
 
 **After you've pushed and the branch keeps moving: the manifest going stale from new commits landing.** Two optional automations close this gap without weakening the check itself or discarding curated review content — adopt them if your project's git activity is frequent enough that this becomes a recurring annoyance rather than an occasional one:
 
-- **`scripts/create_release_pr.py --sync-mechanical`**, run on every push to `staging` (e.g. a `release-pr-sync.yml` workflow triggered `on: push: branches: [staging]`). For the persistent release PR, `## Branch integration` and `## Changed-file manifest` are fully mechanical, so both are safely regenerated in place; every human-authored section, including Authorized scope, Risk and review evidence, and Evidence, is preserved byte-for-byte. In multi-operator mode the existing `## Git-work lease` is preserved after its lease ID and grant URL are revalidated. A changed head intentionally makes the preserved review record stale until a reviewer records a new exact-head decision.
+- **`scripts/create_release_pr.py --sync-mechanical`**, run on every push to `staging` (e.g. a `release-pr-sync.yml` workflow triggered `on: push: branches: [staging]`). For the persistent release PR, `## Branch integration` and `## Changed-file manifest` are fully mechanical, so both are safely regenerated in place; every human-authored section, including Authorized scope, Risk and review evidence, and Evidence, is preserved byte-for-byte. In multi-human mode the existing `## Git-work lease` is preserved after its lease ID and grant URL are revalidated. A changed head intentionally makes the preserved review record stale until a reviewer records a new exact-head decision.
 - **`scripts/sync_pr_manifest.py`**, run on every push to any other branch (e.g. a `feature-pr-manifest-sync.yml` workflow triggered `on: push: branches-ignore: [staging, main]`). Deliberately narrower: an ordinary feature PR's `## Branch integration` mixes mechanical SHA-reference lines with human-checked `- [ ]` items, and `check_git_governance.py`'s `validate()` never parses either from body text (base/head SHAs come from the live GitHub event, not the body) — so there's no safety reason to regenerate that section, and a real risk of silently unchecking boxes a human already verified. This script touches only `## Changed-file manifest`.
 
 Both are no-ops (not failures) when no open PR matches the pushed branch, and neither ever opens a PR itself. Both also perform an ancestry precondition check before diffing (mirroring `check_git_governance.py`'s own check for the feature path) — a two-dot `git diff base..head` is a direct snapshot compare, not merge-base-scoped the way `git log`'s range syntax is, so a branch that has fallen behind its target would otherwise get a manifest polluted with the target's own unrelated changes instead of a clear "rebase or recreate" error.

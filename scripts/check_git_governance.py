@@ -52,16 +52,8 @@ FORBIDDEN_EXACT = {
 # tracking issue that records lease grants — see docs/GIT_OPERATIONS_COVENANT.md).
 LIVE_LEDGER_URL = DEFAULT_LEDGER_URL
 
-# Set to True during onboarding ONLY for a genuinely single-operator repo — one
-# human directing agent sessions with no second person to hold Merge Steward
-# or grant leases (see FRAMEWORK.md §III.8's solo-vs-multi-operator note and
-# GIT_OPERATIONS_COVENANT.md's "Solo-operator mode" section). This drops the
-# live-ledger lease requirement only; every other check below (ancestry,
-# single-use branches, undeclared merge commits, changed-file manifest,
-# forbidden artifacts, high-risk classification) stays mandatory regardless —
-# those are what actually catch a stale/diverged branch, and a solo operator
-# juggling multiple parallel agent sessions needs them exactly as much as a
-# multi-person team does.
+# Legacy CLI compatibility. New scaffolds install this checker only in
+# multi-human operator mode and derive behavior from .agentic-org.json.
 SOLO_MODE = False
 
 

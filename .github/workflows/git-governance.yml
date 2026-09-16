@@ -1,7 +1,10 @@
 name: Git governance
 
 on:
-  pull_request:
+  # This workflow must already exist on the pull request's trusted base. GitHub
+  # therefore loads this definition from the base branch, not from candidate
+  # content. Candidate files are checked out separately and are never executed.
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, edited]
 
 permissions:
@@ -32,46 +35,43 @@ jobs:
     # repo's own full name, so it only suppresses the check here; any project created
     # from "Use this template" gets a different github.repository value and the
     # check runs normally there.
-    # A draft is explicitly allowed to carry Decision: needs-work while review
-    # is in progress. Enforce only after the author marks it ready; the
-    # ready_for_review trigger below guarantees a fresh exact-head run, and all
-    # subsequent synchronize/edited events continue to fail closed.
-    if: github.repository != 'irl-labs-us/agentic-org-framework' && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
+    if: github.repository != 'irl-labs-us/agentic-org-framework'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Check out exact pull-request head
+      - name: Check out trusted base policy
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-policy
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Prepare trusted base policy
+      - name: Check out exact pull-request head as untrusted data
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare trusted policy and candidate history
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          governance_policy_dir="$(mktemp -d "$RUNNER_TEMP/git-governance.XXXXXX")"
-          chmod 700 "$governance_policy_dir"
-          echo "GOVERNANCE_POLICY_DIR=$governance_policy_dir" >> "$GITHUB_ENV"
-          git fetch --no-tags origin "$BASE_SHA"
-          if git cat-file -e "$BASE_SHA:scripts/check_git_governance.py"; then
-            git show "$BASE_SHA:scripts/check_git_governance.py" > "$governance_policy_dir/check_git_governance.py"
-            if git cat-file -e "$BASE_SHA:scripts/framework_config.py"; then
-              git show "$BASE_SHA:scripts/framework_config.py" > "$governance_policy_dir/framework_config.py"
-            else
-              echo "Trusted base has a governance checker but no matching configuration loader."
-              exit 1
-            fi
-            if git cat-file -e "$BASE_SHA:.agentic-org.json"; then
-              git show "$BASE_SHA:.agentic-org.json" > "$governance_policy_dir/agentic-org.json"
-              echo "GOVERNANCE_CONFIG=$governance_policy_dir/agentic-org.json" >> "$GITHUB_ENV"
-            fi
-          else
-            cp scripts/check_git_governance.py "$governance_policy_dir/check_git_governance.py"
-            cp scripts/framework_config.py "$governance_policy_dir/framework_config.py"
-            echo "Bootstrap run: base branch has no governance checker; Merge Steward must inspect this policy change manually."
-          fi
+          test -f trusted-policy/scripts/check_git_governance.py
+          test -f trusted-policy/scripts/framework_config.py
+          test -f trusted-policy/.agentic-org.json
+          # Import the base object from the local trusted checkout. This works
+          # for private repositories without persisting a token in either Git
+          # checkout or exposing credentials to candidate processing.
+          git -C candidate remote add trusted-base "$GITHUB_WORKSPACE/trusted-policy"
+          git -C candidate fetch --no-tags trusted-base "$BASE_SHA"
+          echo "GOVERNANCE_POLICY_DIR=$GITHUB_WORKSPACE/trusted-policy/scripts" >> "$GITHUB_ENV"
+          echo "GOVERNANCE_CONFIG=$GITHUB_WORKSPACE/trusted-policy/.agentic-org.json" >> "$GITHUB_ENV"
+          echo "CANDIDATE_REPO=$GITHUB_WORKSPACE/candidate" >> "$GITHUB_ENV"
 
       - name: Collect live pull-request metadata and branch history
         id: metadata
@@ -89,7 +89,7 @@ jobs:
             exit 0
           fi
           echo "superseded=false" >> "$GITHUB_OUTPUT"
-          jq -r '.body // ""' <<< "$live_metadata" > "$GOVERNANCE_POLICY_DIR/pr-body.md"
+          jq -r '.body // ""' <<< "$live_metadata" > "$RUNNER_TEMP/git-governance-pr-body.md"
           prior_pr_count="$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$HEAD_REF" --limit 100 --json number --jq "[.[] | select(.number != $PR_NUMBER)] | length")"
           echo "prior_pr_count=$prior_pr_count" >> "$GITHUB_OUTPUT"
 
@@ -107,10 +107,11 @@ jobs:
             config_args+=(--config "$GOVERNANCE_CONFIG")
           fi
           python "$GOVERNANCE_POLICY_DIR/check_git_governance.py" \
+            --repo "$CANDIDATE_REPO" \
             --base-ref "$BASE_REF" \
             --head-ref "$HEAD_REF" \
             --base-sha "$BASE_SHA" \
             --head-sha "$HEAD_SHA" \
-            --body-file "$GOVERNANCE_POLICY_DIR/pr-body.md" \
+            --body-file "$RUNNER_TEMP/git-governance-pr-body.md" \
             --prior-pr-count "$PRIOR_PR_COUNT" \
             "${config_args[@]}"

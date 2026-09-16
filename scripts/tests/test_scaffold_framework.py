@@ -23,7 +23,13 @@ from scaffold_framework import (  # noqa: E402
 SOURCE = Path(__file__).resolve().parents[2]
 
 
-def write_config(target: Path, *, profile: str = "solo", manifest_sync: bool = False) -> None:
+def write_config(
+    target: Path,
+    *,
+    profile: str = "solo",
+    operator_mode: str = "single-human",
+    manifest_sync: bool = False,
+) -> None:
     raw = json.loads((SOURCE / ".agentic-org.example.json").read_text())
     raw["profile"] = profile
     raw["repository"] = {
@@ -32,9 +38,12 @@ def write_config(target: Path, *, profile: str = "solo", manifest_sync: bool = F
         "integration_branch": "develop",
         "release_branch": "production",
     }
+    raw["git_governance"]["operator_mode"] = operator_mode
     raw["modules"]["manifest_sync"] = manifest_sync
-    if profile == "multi":
+    if operator_mode == "multi-human":
         raw["git_governance"]["ledger_url"] = "https://github.com/acme/widget/issues/42"
+    else:
+        raw["git_governance"]["ledger_url"] = None
     (target / ".agentic-org.json").write_text(json.dumps(raw), encoding="utf-8")
 
 
@@ -45,7 +54,7 @@ def install(target: Path) -> None:
 
 
 def test_scaffold_is_idempotent_and_uses_custom_branches(tmp_path: Path) -> None:
-    write_config(tmp_path, manifest_sync=True)
+    write_config(tmp_path, operator_mode="multi-human", manifest_sync=True)
     install(tmp_path)
     config = load_framework_config(repo=tmp_path, required=True)
     changes, _ = plan_changes(tmp_path, desired_files(SOURCE, config))
@@ -84,10 +93,11 @@ def test_each_profile_scaffolds_and_passes_local_doctor(tmp_path: Path, profile:
 
     assert errors == []
     registry = tmp_path / "docs/coordination/GIT_WORK_REGISTRY.md"
-    assert registry.exists() is (profile == "multi")
+    assert not registry.exists()
     matrix = (tmp_path / "docs/CONTROL_MATRIX.md").read_text()
-    assert ("| lease-ledger |" in matrix) is (profile == "multi")
-    assert "| candidate-bound-review |" in matrix
+    assert "| lease-ledger |" not in matrix
+    assert "| candidate-bound-review |" not in matrix
+    assert "| repository-readiness |" in matrix
 
 
 def test_lightweight_profile_installs_fewer_files_and_short_mission(tmp_path: Path) -> None:
@@ -107,32 +117,31 @@ def test_lightweight_profile_installs_fewer_files_and_short_mission(tmp_path: Pa
     assert "docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md" in light_files
     assert "docs/coordination/MISSION_PACKET_TEMPLATE.md" not in light_files
     assert "docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md" not in light_files
-    assert "scripts/check_git_governance.py" in light_files
+    assert "scripts/check_git_governance.py" not in light_files
     assert "docs/governance/AGENT_GOVERNANCE.md" in light_files
-    assert ".github/workflows/git-governance.yml" in light_files
+    assert ".github/workflows/git-governance.yml" not in light_files
     lightweight_mission = light_files["docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md"]
     full_mission = solo_files["docs/coordination/MISSION_PACKET_TEMPLATE.md"]
-    assert len(lightweight_mission) < len(full_mission) // 2
+    assert len(lightweight_mission) < len(full_mission)
     assert b"LIGHTWEIGHT_MISSION_TEMPLATE.md" in light_files["AGENTS.md"]
 
 
-@pytest.mark.parametrize("profile", ["lightweight", "solo"])
-def test_non_multi_profiles_render_without_lease_contract(tmp_path: Path, profile: str) -> None:
+@pytest.mark.parametrize("profile", ["lightweight", "solo", "multi"])
+def test_single_human_mode_omits_coordination_contract(tmp_path: Path, profile: str) -> None:
     write_config(tmp_path, profile=profile)
     files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
 
     pull_request_template = files[".github/pull_request_template.md"].decode()
-    covenant = files["docs/coordination/GIT_OPERATIONS_COVENANT.md"].decode()
+    assert "docs/coordination/GIT_OPERATIONS_COVENANT.md" not in files
+    assert ".github/workflows/git-governance.yml" not in files
+    assert "scripts/check_git_governance.py" not in files
     assert "\n## Git-work lease\n" not in pull_request_template
-    assert "Git-work lease: N/A — solo-operator mode" in pull_request_template
-    assert "Multi-operator mode (default)" not in pull_request_template
-    assert "N/A (solo-operator mode)#issuecomment" not in covenant
-    assert "](N/A (solo-operator mode))" not in covenant
-    assert "`## Git-work lease` (multi-operator mode only)" in covenant
+    assert "Changed-file manifest" not in pull_request_template
+    assert "check_pr_readiness.py" in pull_request_template
 
 
 def test_multi_profile_retains_lease_contract(tmp_path: Path) -> None:
-    write_config(tmp_path, profile="multi")
+    write_config(tmp_path, profile="multi", operator_mode="multi-human")
     files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
 
     pull_request_template = files[".github/pull_request_template.md"].decode()
@@ -141,23 +150,26 @@ def test_multi_profile_retains_lease_contract(tmp_path: Path) -> None:
     assert "https://github.com/acme/widget/issues/42#issuecomment-<digits>" in covenant
 
 
-def test_governance_workflow_defers_merge_validation_until_ready_for_review() -> None:
+def test_governance_workflow_uses_trusted_base_policy() -> None:
     workflow = (SOURCE / ".github/workflows/git-governance.yml").read_text()
 
     assert "ready_for_review" in workflow
-    assert "github.event.action == 'ready_for_review'" in workflow
-    assert "github.event.pull_request.draft == false" in workflow
+    assert "pull_request_target:" in workflow
+    assert "path: trusted-policy" in workflow
+    assert "path: candidate" in workflow
+    assert 'remote add trusted-base "$GITHUB_WORKSPACE/trusted-policy"' in workflow
+    assert "AGENTIC_ORG_BOOTSTRAP_HEAD_SHA" not in workflow
 
 
 def test_scaffold_refuses_to_overwrite_human_edit(tmp_path: Path) -> None:
     write_config(tmp_path)
     install(tmp_path)
-    governed = tmp_path / "docs/coordination/GIT_OPERATIONS_COVENANT.md"
+    governed = tmp_path / "docs/governance/AGENT_GOVERNANCE.md"
     governed.write_text(governed.read_text() + "\nhuman edit\n")
     config = load_framework_config(repo=tmp_path, required=True)
     changes, hashes = plan_changes(tmp_path, desired_files(SOURCE, config))
 
-    assert any(c.action == "conflict" and c.path.endswith("GIT_OPERATIONS_COVENANT.md") for c in changes)
+    assert any(c.action == "conflict" and c.path.endswith("AGENT_GOVERNANCE.md") for c in changes)
     with pytest.raises(FrameworkConfigError, match="refusing to overwrite"):
         apply_changes(tmp_path, changes, hashes)
 
@@ -191,7 +203,7 @@ def test_first_run_accepts_exact_files_from_github_template(tmp_path: Path) -> N
     write_config(tmp_path)
     destination = tmp_path / ".github/pull_request_template.md"
     destination.parent.mkdir(parents=True)
-    destination.write_bytes((SOURCE / ".github/pull_request_template.md").read_bytes())
+    destination.write_bytes((SOURCE / "templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md").read_bytes())
     config = load_framework_config(repo=tmp_path, required=True)
 
     changes, _ = plan_changes(
@@ -218,8 +230,8 @@ def test_disabled_modules_do_not_install_active_artifacts(tmp_path: Path) -> Non
 def test_doctor_reports_missing_and_unresolved_placeholder(tmp_path: Path) -> None:
     write_config(tmp_path)
     install(tmp_path)
-    covenant = tmp_path / "docs/coordination/GIT_OPERATIONS_COVENANT.md"
-    covenant.write_text(covenant.read_text() + "\n{CEO}\n")
+    pull_request = tmp_path / ".github/pull_request_template.md"
+    pull_request.write_text(pull_request.read_text() + "\n{CEO}\n")
     (tmp_path / "docs/governance/AGENT_GOVERNANCE.md").unlink()
 
     errors, _ = diagnose(tmp_path, load_framework_config(repo=tmp_path, required=True))

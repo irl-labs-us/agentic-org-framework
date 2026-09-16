@@ -24,18 +24,13 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
         ".agentic-org.json",
         "AGENTS.md",
         ".github/pull_request_template.md",
-        ".github/workflows/git-governance.yml",
         "docs/CONTROL_MATRIX.md",
         "docs/coordination/AGENT_STARTUP.md",
-        "docs/coordination/GIT_OPERATIONS_COVENANT.md",
         "docs/governance/AGENT_GOVERNANCE.md",
         "scripts/framework_config.py",
         "scripts/scaffold_framework.py",
         "scripts/framework_doctor.py",
-        "scripts/check_git_governance.py",
         "scripts/check_pr_readiness.py",
-        "scripts/create_feature_worktree.py",
-        "scripts/create_release_pr.py",
     }
     if config.profile == "lightweight":
         paths.add("docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md")
@@ -46,8 +41,17 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
                 "docs/coordination/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md",
             }
         )
-    if config.profile == "multi":
-        paths.add("docs/coordination/GIT_WORK_REGISTRY.md")
+    if config.multi_human_mode:
+        paths.update(
+            {
+                ".github/workflows/git-governance.yml",
+                "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+                "docs/coordination/GIT_WORK_REGISTRY.md",
+                "scripts/check_git_governance.py",
+                "scripts/create_feature_worktree.py",
+                "scripts/create_release_pr.py",
+            }
+        )
     if config.modules.manifest_sync:
         paths.update(
             {
@@ -74,7 +78,7 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
 def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     notes = [
-        f"[checked] configuration: schema {config.schema_version}, profile {config.profile}",
+        f"[checked] configuration: schema {config.schema_version}, agent profile {config.profile}, operator mode {config.git_governance.operator_mode}",
         f"[checked] branches: {config.repository.integration_branch} -> {config.repository.release_branch}",
     ]
     expected = expected_paths(config)
@@ -127,23 +131,33 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
         notes.append("[unconfigured] Git remote branches: target is not a Git repository")
 
     optional_workflows = {
+        ".github/workflows/git-governance.yml",
         ".github/workflows/release-pr-sync.yml",
         ".github/workflows/feature-pr-manifest-sync.yml",
     }
-    if not config.modules.manifest_sync:
+    if not config.multi_human_mode:
         for relative in sorted(optional_workflows):
+            if (root / relative).exists():
+                errors.append(
+                    f"single-human operator mode must not install coordination workflow: {relative}"
+                )
+    elif not config.modules.manifest_sync:
+        for relative in sorted(optional_workflows):
+            if relative.endswith("git-governance.yml"):
+                continue
             if (root / relative).exists():
                 errors.append(f"manifest_sync is disabled but active workflow exists: {relative}")
 
     required_controls = {
         "config-validation",
-        "git-governance",
-        "authorized-scope",
-        "candidate-bound-review",
         "agent-governance",
     }
-    if config.profile == "multi":
-        required_controls.add("lease-ledger")
+    if config.multi_human_mode:
+        required_controls.update(
+            {"git-governance", "authorized-scope", "candidate-bound-review", "lease-ledger"}
+        )
+    else:
+        required_controls.add("repository-readiness")
     for module in ("manifest_sync", "customer_feedback", "ai_output_discipline"):
         if getattr(config.modules, module):
             required_controls.add(module.replace("_", "-"))
@@ -203,6 +217,11 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
 def diagnose_github(config: FrameworkConfig) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     notes: list[str] = []
+    if not config.multi_human_mode:
+        notes.append(
+            "[manual] single-human operator mode: no Git governance status check or lease ledger required"
+        )
+        return errors, notes
     for branch in (config.repository.integration_branch, config.repository.release_branch):
         result = subprocess.run(
             ["gh", "api", f"repos/{config.repository.slug}/branches/{branch}/protection"],
@@ -228,7 +247,7 @@ def diagnose_github(config: FrameworkConfig) -> tuple[list[str], list[str]]:
             errors.append(f"{branch} does not require branches to be up to date before merge")
         else:
             notes.append(f"[enforced] GitHub protection: {branch} requires current Git operations covenant")
-    if config.profile == "multi" and config.git_governance.ledger_url:
+    if config.multi_human_mode and config.git_governance.ledger_url:
         match = re.fullmatch(
             r"https://github\.com/([^/]+/[^/]+)/issues/(\d+)",
             config.git_governance.ledger_url,
