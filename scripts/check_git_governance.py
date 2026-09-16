@@ -245,7 +245,13 @@ def validate_review_evidence(
     if decision not in REVIEW_DECISIONS:
         raise GovernanceError("Decision must be approve, block, or needs-work")
     if decision != "approve":
-        raise GovernanceError(f"review decision is {decision}; merge validation requires approve")
+        raise GovernanceError(
+            f"review decision is {decision}; merge validation requires approve. "
+            "This is an intentional review gate, not a code or test failure: a qualified "
+            f"reviewer must review exact head {head_sha}, then update Reviewer, Decision, "
+            "Reviewed head SHA, Evidence references, and Decision timestamp in the PR's "
+            "'Risk and review evidence' section. Editing the PR body reruns this check."
+        )
     if reviewed_head != head_sha:
         raise GovernanceError(
             f"review evidence is bound to {reviewed_head}, not current head {head_sha}"
