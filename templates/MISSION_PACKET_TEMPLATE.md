@@ -65,6 +65,19 @@ Copy this template for every new build or user-facing agent assignment. Register
 - **Must escalate:**
 - **Contractor boundary, if applicable:**
 
+## Agent governance
+
+- **Intended use and risk tier:** Low / medium / high / prohibited
+- **Applicable charter version and policy owner:**
+- **Approved data, sources, retention, and access boundary:**
+- **Prohibited data or uses relevant to this mission:**
+- **Required human-review and independent-assurance gate:**
+- **Pre-launch and adversarial/red-team evidence:**
+- **Production signals, thresholds, cadence, and named owners:**
+- **Incident-reporting and escalation route:**
+- **Bounded rollout, rollback, or safe-disable owner:**
+- **Approval expiry / conditions requiring re-approval:** Model, prompt, tools, permissions, data source, policy, or material workflow change
+
 ## Team dependencies
 
 - **Relevant teammates:**
@@ -116,6 +129,8 @@ Copy this template for every new build or user-facing agent assignment. Register
 - [ ] Affected teammates were consulted.
 - [ ] Evidence, tests, and limitations are included.
 - [ ] Human-in-command, privacy, security, and user-control requirements are satisfied.
+- [ ] The current Agent Governance Charter was applied; the risk tier, approved/prohibited data, human and Assurance gates, pre-launch evidence, production monitoring, incident route, and safe-disable/rollback are complete for any deployed agent.
+- [ ] No required governance control is ownerless or missing its threshold, cadence, evidence location, or response; no production use proceeds with a required field still `TBD`.
 - [ ] Findings are separated from operational recommendations and strategy amendment proposals.
 - [ ] Downstream implications and the next owner are named.
 - [ ] Before branch creation, remote `staging` was freshly fetched and pruned; the lease recorded its exact full SHA; and `scripts/create_feature_worktree.py` created the single-use branch directly from that fetched remote-tracking ref.
@@ -143,7 +158,7 @@ Copy this template for every new build or user-facing agent assignment. Register
 
 ## Coordination handshake
 
-> My team name is **[name]**, and my role is **[role]** in **[functional lane or experience area]**. I own **[assignment]** as **[standing accountability / a mission overlay]**. This supports Strategy v1.0 by **[connection]**. **[Accountable destination owner]** will accept and use the result. My work depends on or may affect **[work/owners]**. I will coordinate directly with registered owners about **[topics]**, route ownership/scope/strategy conflicts through {Strategy & Portfolio Lead}, and escalate proposed strategy changes rather than adopting them. I understand that my work is evaluated, and I will optimize first for strategy alignment, authorized goal completion, evidence, safety, quality, and low avoidable correction burden; then for efficiency. I will remain within the funded phase and allocation, count delegation and retries against the same budget, obey the circuit breakers, and stop with an escalation packet before a third attempt on the same blocker. I will prefer the smallest sufficient solution and justify any added complexity. I will not hide problems or avoid required review to improve a metric.
+> My team name is **[name]**, and my role is **[role]** in **[functional lane or experience area]**. I own **[assignment]** as **[standing accountability / a mission overlay]**. This supports Strategy v1.0 by **[connection]**. **[Accountable destination owner]** will accept and use the result. My work depends on or may affect **[work/owners]**. I will coordinate directly with registered owners about **[topics]**, route ownership/scope/strategy conflicts through {Strategy & Portfolio Lead}, and escalate proposed strategy changes rather than adopting them. I have read the current Agent Governance Charter; this work is risk tier **[tier]**, its required gates are **[gates]**, and its escalation owner is **[owner]**. I understand that my work is evaluated, and I will optimize first for strategy alignment, authorized goal completion, evidence, safety, quality, and low avoidable correction burden; then for efficiency. I will remain within the funded phase and allocation, count delegation and retries against the same budget, obey the circuit breakers, and stop with an escalation packet before a third attempt on the same blocker. I will prefer the smallest sufficient solution and justify any added complexity. I will not hide problems or avoid required review to improve a metric.
 
 ## Handoff
 
