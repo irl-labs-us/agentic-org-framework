@@ -179,6 +179,13 @@ python3 scripts/build_weekly_feedback_review.py path/to/feedback.jsonl \
   --output path/to/weekly-review.md
 ```
 
+The generated report is an as-of view at the exclusive `--week-end` cutoff.
+It excludes later observations and carries older unresolved records forward.
+It cannot recreate historical status from a current-state export, so preserve
+`updated_at`, `source_record_version`, and `export_snapshot_id` when the source
+provides them. Conflicting records with the same `feedback_id` are excluded
+from metrics and surfaced for reconciliation rather than resolved by guesswork.
+
 The generated draft is decision support. It still requires fresh review and
 an accountable human decision owner.
 

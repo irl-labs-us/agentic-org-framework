@@ -5,12 +5,16 @@ This is the normalized contract accepted by
 additional fields, but must emit this privacy-safe shape.
 
 ```yaml
+schema_version: 1
 feedback_id: FB-000000
 source: build_chat # in_app | build_chat | beta_walkthrough | support | telemetry | synthetic_test
 source_ref: "safe pointer; never raw private content"
 source_refs: []
 reporter_ref: "pre-approved high-entropy pseudonymous reference"
 occurred_at: "YYYY-MM-DDTHH:MM:SSZ"
+updated_at: null # optional ISO-8601 source-record update time
+source_record_version: "" # optional source-system version/sequence
+export_snapshot_id: "" # optional identifier for the export snapshot
 summary: "privacy-safe expected-versus-observed summary"
 customer_impact: "lost work, block, confusion, delay, reduced usefulness, etc."
 severity: high # low | medium | high | critical
@@ -59,6 +63,13 @@ resolution_verification:
   categories, add them to `extra_forbidden_fragments` when calling the
   harness module rather than relying on the generic default set alone.
 - Preserve multiple source references when reports are deduplicated.
+- `source_ref` (or the documented in-app legacy `id`) is required. The harness
+  does not invent an `unlinked` identity because two such records cannot be
+  reconciled safely.
+- Collection fields must be JSON arrays of strings, `observed_count` must be a
+  positive integer, and `release_blocking` must be a JSON boolean. Ambiguous
+  coercions such as `"false"`, `1.5`, or a scalar path ID are rejected per
+  record without aborting sibling records.
 - Keep identifier namespaces distinct: `affected_journey_ids` contains broad
   product-area labels such as `setup`, `onboarding`, or `checkout`;
   `happy_path_ids` and optional `affected_path_ids` contain only stable
@@ -75,7 +86,9 @@ resolution_verification:
   in both the normalized record and the weekly review.
 - Material feedback links to a happy path and, where feasible, a regression
   test.
-- Deduplication is caller-managed: to point multiple source references at one
-  canonical record, reuse the same `feedback_id` across exports and fold new
-  `source_refs` into that record before writing the JSONL line. The module
-  does not merge duplicates automatically.
+- Canonical deduplication remains caller-managed: fold multiple `source_refs`
+  into one record before export. During review rendering, identical repeated
+  IDs are counted once; conflicting versions of the same ID are excluded from
+  metrics and reported for reconciliation. Use `updated_at`,
+  `source_record_version`, and `export_snapshot_id` to make that decision
+  inspectable; the harness never guesses which conflicting version wins.

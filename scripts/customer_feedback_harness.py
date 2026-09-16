@@ -133,6 +133,10 @@ class FeedbackRecord:
     previous_commitment: str = ""
     promised_customer_outcome: str = ""
     release_blocking: bool = False
+    schema_version: int = 1
+    updated_at: str | None = None
+    source_record_version: str = ""
+    export_snapshot_id: str = ""
     resolution_verification: ResolutionVerification = field(default_factory=ResolutionVerification)
 
     def to_dict(self) -> dict[str, Any]:
@@ -148,95 +152,171 @@ def _assert_privacy_safe(value: Any, *, forbidden_fragments: frozenset[str], pat
         for key, nested in value.items():
             normalized = _normalized_key(key)
             if any(fragment == normalized or fragment in normalized for fragment in forbidden_fragments):
-                raise FeedbackValidationError(f"private or secret field is not allowed: {path}.{key}")
-            _assert_privacy_safe(nested, forbidden_fragments=forbidden_fragments, path=f"{path}.{key}")
+                raise FeedbackValidationError(
+                    f"privacy_forbidden_field: private or secret field is not allowed at {path}.*"
+                )
+            _assert_privacy_safe(nested, forbidden_fragments=forbidden_fragments, path=f"{path}.*")
     elif isinstance(value, (list, tuple)):
-        for index, nested in enumerate(value):
-            _assert_privacy_safe(nested, forbidden_fragments=forbidden_fragments, path=f"{path}[{index}]")
+        for nested in value:
+            _assert_privacy_safe(nested, forbidden_fragments=forbidden_fragments, path=f"{path}[]")
     elif isinstance(value, str) and _SECRET_VALUE.search(value):
-        raise FeedbackValidationError(f"credential-like value is not allowed: {path}")
+        raise FeedbackValidationError(
+            f"privacy_credential_value: credential-like value is not allowed at {path}"
+        )
 
 
-def _mapping(value: Any) -> dict[str, Any]:
+def _mapping(value: Any, *, field_name: str = "metadata") -> dict[str, Any]:
     if value is None:
         return {}
     if isinstance(value, str):
         try:
             value = json.loads(value)
         except json.JSONDecodeError as exc:
-            raise FeedbackValidationError("meta_json must contain a JSON object") from exc
+            raise FeedbackValidationError(
+                f"invalid_json_object: {field_name} must contain a JSON object"
+            ) from exc
     if not isinstance(value, Mapping):
-        raise FeedbackValidationError("metadata must be an object")
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be an object")
     return dict(value)
 
 
 def _text(value: Any, *, field_name: str, required: bool = False, limit: int = 800) -> str:
-    text = " ".join(str(value or "").split())
+    if value is None:
+        text = ""
+    elif not isinstance(value, str):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be a string")
+    else:
+        text = " ".join(value.split())
     if required and not text:
-        raise FeedbackValidationError(f"{field_name} is required")
+        raise FeedbackValidationError(f"missing_required_field: {field_name} is required")
     if len(text) > limit:
-        raise FeedbackValidationError(f"{field_name} exceeds {limit} characters; summarize it")
+        raise FeedbackValidationError(
+            f"value_too_long: {field_name} exceeds {limit} characters; summarize it"
+        )
     if _SECRET_VALUE.search(text):
-        raise FeedbackValidationError(f"credential-like value is not allowed in {field_name}")
+        raise FeedbackValidationError(
+            f"privacy_credential_value: credential-like value is not allowed in {field_name}"
+        )
     return text
 
 
 def _choice(value: Any, allowed: set[str], *, field_name: str, default: str) -> str:
+    if value is not None and not isinstance(value, str):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be a string")
     candidate = _normalized_key(value or default)
     if candidate not in allowed:
-        raise FeedbackValidationError(f"invalid {field_name}: {candidate!r}")
+        choices = ", ".join(sorted(allowed))
+        raise FeedbackValidationError(
+            f"invalid_value: {field_name} must be one of: {choices}"
+        )
     return candidate
 
 
 def _strings(value: Any, *, field_name: str, limit: int = 20) -> tuple[str, ...]:
     if value in (None, ""):
         return ()
-    values = [value] if isinstance(value, str) else list(value)
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be a list of strings")
+    values = list(value)
     if len(values) > limit:
-        raise FeedbackValidationError(f"{field_name} has too many values")
+        raise FeedbackValidationError(f"too_many_values: {field_name} has too many values")
     cleaned = {_text(item, field_name=field_name, required=True, limit=240) for item in values}
     return tuple(sorted(cleaned))
 
 
-def _timestamp(value: Any) -> str:
+def _timestamp(value: Any, *, field_name: str = "occurred_at") -> str:
     if isinstance(value, datetime):
         parsed = value
+    elif not isinstance(value, str):
+        raise FeedbackValidationError(
+            f"invalid_type: {field_name} must be an ISO-8601 string or datetime"
+        )
     else:
-        raw = str(value or "").strip()
+        raw = value.strip()
         if not raw:
-            raise FeedbackValidationError("occurred_at is required for deterministic reviews")
+            raise FeedbackValidationError(
+                f"missing_required_field: {field_name} is required for deterministic reviews"
+            )
         else:
             try:
                 parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
             except ValueError as exc:
-                raise FeedbackValidationError("occurred_at must be an ISO-8601 timestamp") from exc
+                raise FeedbackValidationError(
+                    f"invalid_timestamp: {field_name} must be an ISO-8601 timestamp"
+                ) from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _optional_date(value: Any, *, field_name: str) -> str | None:
-    raw = str(value or "").strip()
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be YYYY-MM-DD")
+    if isinstance(value, date):
+        return value.isoformat()
+    if not isinstance(value, str):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be YYYY-MM-DD")
+    raw = value.strip()
     if not raw:
         return None
     try:
         return date.fromisoformat(raw).isoformat()
     except ValueError as exc:
-        raise FeedbackValidationError(f"{field_name} must be YYYY-MM-DD") from exc
+        raise FeedbackValidationError(f"invalid_date: {field_name} must be YYYY-MM-DD") from exc
 
 
 def _observed_count(value: Any) -> int:
-    try:
-        count = int(value if value is not None else 1)
-    except (TypeError, ValueError) as exc:
-        raise FeedbackValidationError("observed_count must be a positive integer") from exc
+    if value is None:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise FeedbackValidationError("invalid_type: observed_count must be a positive integer")
+    count = value
     if count < 1:
-        raise FeedbackValidationError("observed_count must be a positive integer")
+        raise FeedbackValidationError(
+            "invalid_value: observed_count must be a positive integer"
+        )
     return count
 
 
+def _boolean(value: Any, *, field_name: str, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise FeedbackValidationError(f"invalid_type: {field_name} must be true or false")
+    return value
+
+
+def _rating_is_negative(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise FeedbackValidationError("invalid_type: rating must be an integer")
+    return value == 0
+
+
+def _schema_version(value: Any) -> int:
+    if value is None:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise FeedbackValidationError("invalid_type: schema_version must be integer 1")
+    if value != 1:
+        raise FeedbackValidationError(
+            "unsupported_schema_version: only schema_version 1 is supported"
+        )
+    return value
+
+
 def _pseudonym(raw: Any, *, namespace: str) -> str:
-    value = str(raw or "anonymous").strip()
+    if not isinstance(namespace, str) or not namespace.strip():
+        raise FeedbackValidationError("invalid_value: pseudonym_namespace must be a non-empty string")
+    if raw is None or raw == "":
+        value = "anonymous"
+    elif isinstance(raw, bool) or not isinstance(raw, (str, int)):
+        raise FeedbackValidationError("invalid_type: reporter_ref must be a string or integer identifier")
+    else:
+        value = str(raw).strip()
     if value.startswith("anon-") and re.fullmatch(r"anon-[a-f0-9]{12}", value):
         return value
     digest = hashlib.sha256(f"{namespace}:{value}".encode("utf-8")).hexdigest()[:12]
@@ -315,12 +395,25 @@ def normalize_feedback(
     """
 
     if not isinstance(raw, Mapping):
-        raise FeedbackValidationError("feedback must be an object")
-    forbidden_fragments = frozenset(_BASE_FORBIDDEN_KEY_FRAGMENTS | {_normalized_key(f) for f in extra_forbidden_fragments})
-    _assert_privacy_safe(raw, forbidden_fragments=forbidden_fragments)
-    source_meta = _mapping(raw.get("meta_json"))
-    data = {**source_meta, **dict(raw)}
-    data.pop("meta_json", None)
+        raise FeedbackValidationError("invalid_type: feedback must be an object")
+    normalized_extra_fragments: set[str] = set()
+    for fragment in extra_forbidden_fragments:
+        if not isinstance(fragment, str) or not _normalized_key(fragment):
+            raise FeedbackValidationError(
+                "invalid_value: extra_forbidden_fragments must contain non-empty strings"
+            )
+        normalized_extra_fragments.add(_normalized_key(fragment))
+    forbidden_fragments = frozenset(_BASE_FORBIDDEN_KEY_FRAGMENTS | normalized_extra_fragments)
+    source_meta = _mapping(raw.get("meta_json"), field_name="meta_json")
+    direct_data = dict(raw)
+    direct_data.pop("meta_json", None)
+    _assert_privacy_safe(direct_data, forbidden_fragments=forbidden_fragments)
+    _assert_privacy_safe(
+        source_meta,
+        forbidden_fragments=forbidden_fragments,
+        path="feedback.meta_json",
+    )
+    data = {**source_meta, **direct_data}
 
     source = _choice(
         data.get("source") or data.get("source_type") or default_source,
@@ -339,7 +432,7 @@ def normalize_feedback(
         required=True,
     )
     rating = data.get("rating")
-    inferred_severity = "high" if rating is not None and int(rating) == 0 else "medium"
+    inferred_severity = "high" if _rating_is_negative(rating) else "medium"
     if _looks_like_functional_regression(summary, impact):
         inferred_severity = "high"
     severity = _choice(data.get("severity"), SEVERITIES, field_name="severity", default=inferred_severity)
@@ -348,8 +441,17 @@ def normalize_feedback(
     occurred_at = _timestamp(data.get("occurred_at") or data.get("created_at") or data.get("reported_at"))
 
     legacy_id = data.get("id")
+    if legacy_id is not None and (isinstance(legacy_id, bool) or not isinstance(legacy_id, (str, int))):
+        raise FeedbackValidationError("invalid_type: id must be a string or integer")
+    source_ref_value = data.get("source_ref")
+    if source_ref_value in (None, "") and legacy_id is not None:
+        source_ref_value = f"app_feedback:{legacy_id}"
+    if source_ref_value in (None, ""):
+        raise FeedbackValidationError(
+            "missing_source_identity: source_ref or a documented legacy id is required"
+        )
     source_ref = _text(
-        data.get("source_ref") or (f"app_feedback:{legacy_id}" if legacy_id is not None else "unlinked"),
+        source_ref_value,
         field_name="source_ref",
         required=True,
         limit=300,
@@ -376,7 +478,7 @@ def normalize_feedback(
         impact_areas.update({"functionality", "customer_experience"})
     impact_areas = tuple(sorted(impact_areas))
     release_blocking = (
-        bool(data.get("release_blocking"))
+        _boolean(data.get("release_blocking"), field_name="release_blocking")
         or severity == "critical"
         or bool({"security", "privacy"}.intersection(impact_areas))
         or security_impact in {"suspected", "confirmed"}
@@ -388,7 +490,10 @@ def normalize_feedback(
     verification_value = data.get("resolution_verification")
     if verification_value is None and data.get("customer_outcome_verification") is not None:
         verification_value = {"status": data.get("customer_outcome_verification")}
-    verification_raw = _mapping(verification_value)
+    verification_raw = _mapping(
+        verification_value,
+        field_name="resolution_verification",
+    )
     verification_status = _choice(
         verification_raw.get("status"),
         VERIFICATION_STATUSES,
@@ -398,18 +503,35 @@ def normalize_feedback(
     verification = ResolutionVerification(
         status=verification_status,
         evidence_refs=_strings(verification_raw.get("evidence_refs"), field_name="verification evidence"),
-        verified_at=(_timestamp(verification_raw["verified_at"]) if verification_raw.get("verified_at") else None),
+        verified_at=(
+            _timestamp(
+                verification_raw["verified_at"],
+                field_name="resolution_verification.verified_at",
+            )
+            if verification_raw.get("verified_at")
+            else None
+        ),
     )
     if status == "verified" and verification.status != "verified":
-        raise FeedbackValidationError("verified feedback requires verified resolution evidence")
+        raise FeedbackValidationError(
+            "invalid_lifecycle: verified feedback requires verified resolution evidence"
+        )
     if status == "verified" and (not verification.evidence_refs or not verification.verified_at):
-        raise FeedbackValidationError("verified feedback requires evidence_refs and verified_at")
+        raise FeedbackValidationError(
+            "invalid_lifecycle: verified feedback requires evidence_refs and verified_at"
+        )
+    if verification.status == "verified" and status != "verified":
+        raise FeedbackValidationError(
+            "invalid_lifecycle: verified resolution evidence requires status 'verified'"
+        )
 
     decision = _choice(data.get("decision"), DECISIONS, field_name="decision", default="pending")
     defer_reason = _text(data.get("defer_reason"), field_name="defer reason", limit=500)
     revisit_date = _optional_date(data.get("revisit_date"), field_name="revisit_date")
     if (status == "deferred" or decision == "defer") and (not defer_reason or not revisit_date):
-        raise FeedbackValidationError("deferred feedback requires defer_reason and revisit_date")
+        raise FeedbackValidationError(
+            "invalid_lifecycle: deferred feedback requires defer_reason and revisit_date"
+        )
 
     feedback_id = _text(data.get("feedback_id"), field_name="feedback_id", limit=120) or _stable_id(
         source, source_ref, occurred_at
@@ -480,6 +602,22 @@ def normalize_feedback(
             limit=500,
         ),
         release_blocking=release_blocking,
+        schema_version=_schema_version(data.get("schema_version")),
+        updated_at=(
+            _timestamp(data["updated_at"], field_name="updated_at")
+            if data.get("updated_at")
+            else None
+        ),
+        source_record_version=_text(
+            data.get("source_record_version"),
+            field_name="source_record_version",
+            limit=120,
+        ),
+        export_snapshot_id=_text(
+            data.get("export_snapshot_id"),
+            field_name="export_snapshot_id",
+            limit=120,
+        ),
         resolution_verification=verification,
     )
 
@@ -596,6 +734,41 @@ def _as_utc(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
+def is_unresolved_blocker(record: FeedbackRecord) -> bool:
+    """Return whether a release blocker still lacks verified outcome evidence."""
+
+    return record.release_blocking and not (
+        record.status == "verified" and record.resolution_verification.status == "verified"
+    )
+
+
+def _reconcile_record_identities(
+    records: Iterable[FeedbackRecord],
+) -> tuple[list[FeedbackRecord], list[str]]:
+    """Deduplicate exact repeats and exclude conflicting canonical identities."""
+
+    grouped: dict[str, list[FeedbackRecord]] = {}
+    for record in records:
+        grouped.setdefault(record.feedback_id, []).append(record)
+
+    reconciled: list[FeedbackRecord] = []
+    notes: list[str] = []
+    for feedback_id, versions in sorted(grouped.items()):
+        first = versions[0]
+        if all(version == first for version in versions[1:]):
+            reconciled.append(first)
+            if len(versions) > 1:
+                notes.append(
+                    f"[{feedback_id}] {len(versions)} identical copies were counted once."
+                )
+            continue
+        notes.append(
+            f"[{feedback_id}] conflicting record versions were excluded from metrics; "
+            "reconcile source_record_version/updated_at and re-export one canonical record."
+        )
+    return reconciled, notes
+
+
 def _record_line(record: FeedbackRecord) -> str:
     paths = ", ".join(record.affected_path_ids) or "unmapped"
     return (
@@ -630,15 +803,12 @@ def build_weekly_review(
     start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
     end = datetime.combine(end_date, time.min, tzinfo=timezone.utc)
 
-    ordered = sorted(records, key=lambda item: (item.occurred_at, item.feedback_id))
+    eligible = [item for item in records if _as_utc(item.occurred_at) < end]
+    reconciled, identity_notes = _reconcile_record_identities(eligible)
+    ordered = sorted(reconciled, key=lambda item: (item.occurred_at, item.feedback_id))
     new = [item for item in ordered if start <= _as_utc(item.occurred_at) < end]
     open_items = [item for item in ordered if item.status in OPEN_STATUSES]
-    blocking = [
-        item
-        for item in ordered
-        if item.release_blocking
-        and not (item.status == "verified" and item.resolution_verification.status == "verified")
-    ]
+    blocking = [item for item in ordered if is_unresolved_blocker(item)]
     awaiting = [
         item
         for item in ordered
@@ -661,6 +831,9 @@ def build_weekly_review(
     lines = [
         f"# Weekly Customer Feedback Review — {start_date.isoformat()} to {end_date.isoformat()}",
         "",
+        f"As-of cutoff: {end_date.isoformat()} 00:00:00 UTC (exclusive). "
+        "Older unresolved records carry forward; later records are excluded.",
+        "",
         f"Feedback reviewed: {len(ordered)} | New this week: {len(new)} | Open blockers: {len(blocking)} | "
         f"Rejected during load: {len(rejected)}",
     ]
@@ -669,6 +842,11 @@ def build_weekly_review(
     lines.extend(f"- {_md(item.source)}:{item.line} — {_md(item.error)}" for item in rejected)
     if not rejected:
         lines.append("- None")
+
+    lines.extend(["", "## Record identity reconciliation", ""])
+    lines.extend(f"- {note}" for note in identity_notes)
+    if not identity_notes:
+        lines.append("- No duplicate or conflicting feedback IDs detected.")
 
     lines.extend(
         [
@@ -703,7 +881,7 @@ def build_weekly_review(
         lines.append(
             f"| {_md(path_id)} | {sum(item.observed_count for item in path_records)} | "
             f"{sum(item.status in OPEN_STATUSES for item in path_records)} | "
-            f"{sum(item.release_blocking and item.status in OPEN_STATUSES for item in path_records)} |"
+            f"{sum(is_unresolved_blocker(item) for item in path_records)} |"
         )
     if not path_ids:
         lines.append("| Unmapped | 0 | 0 | 0 |")
@@ -829,6 +1007,7 @@ def build_weekly_review(
 
     lines.extend(["", "## Evidence gaps and questions", ""])
     gaps: list[str] = []
+    gaps.extend(identity_notes)
     gaps.append(
         "Confirm and record reconciliation status for each feedback source; record counts alone are not coverage."
     )
@@ -843,7 +1022,7 @@ def build_weekly_review(
             gaps.append(f"[{item.feedback_id}] Assign an accountable owner and due date or review condition.")
         if item.next_build_priority and not item.acceptance_evidence:
             gaps.append(f"[{item.feedback_id}] Define acceptance evidence before this priority can be accepted.")
-        if item.release_blocking and not item.rollback_or_disable:
+        if is_unresolved_blocker(item) and not item.rollback_or_disable:
             gaps.append(f"[{item.feedback_id}] Define a rollback or safe-disable path for the blocker.")
     lines.extend(f"- {gap}" for gap in gaps)
     if not gaps:

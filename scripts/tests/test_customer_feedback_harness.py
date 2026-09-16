@@ -541,3 +541,224 @@ def test_generic_jsonl_requires_and_preserves_documented_source(tmp_path):
     assert record.source_refs == ("metric:event", "trace:safe")
     assert record.observed_count == 3
     assert record.decision == "investigate"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("rating", "bad"),
+        ("affected_path_ids", 42),
+        ("observed_count", 1.8),
+        ("release_blocking", "false"),
+    ],
+)
+def test_invalid_field_types_reject_one_line_without_aborting_siblings(tmp_path, field, value):
+    source = tmp_path / "strict-types.jsonl"
+    base = {
+        "source": "support",
+        "source_ref": "support:base",
+        "occurred_at": "2026-09-01T00:00:00Z",
+        "summary": "A safe summarized observation.",
+        "customer_impact": "The customer needed another attempt.",
+    }
+    source.write_text(
+        json.dumps({**base, "source_ref": "support:invalid", field: value})
+        + "\n"
+        + json.dumps({**base, "source_ref": "support:valid"})
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = load_feedback_jsonl(source)
+
+    assert len(result.records) == 1
+    assert result.records[0].source_ref == "support:valid"
+    assert len(result.rejected) == 1
+    assert result.rejected[0].error.startswith("invalid_type:")
+
+
+@pytest.mark.parametrize("encoded", [False, True])
+def test_decoded_metadata_receives_the_same_privacy_validation(encoded):
+    canary_key = "password_private_canary"
+    metadata = {canary_key: "not-a-real-secret"}
+    raw = {
+        "source": "support",
+        "source_ref": "support:metadata",
+        "occurred_at": "2026-09-01T00:00:00Z",
+        "summary": "A safe summarized observation.",
+        "customer_impact": "The customer needed another attempt.",
+        "meta_json": json.dumps(metadata) if encoded else metadata,
+    }
+
+    with pytest.raises(FeedbackValidationError) as exc_info:
+        normalize_feedback(raw)
+
+    error = str(exc_info.value)
+    assert error.startswith("privacy_forbidden_field:")
+    assert canary_key not in error
+    assert "not-a-real-secret" not in error
+
+
+def test_rejection_diagnostics_do_not_reproduce_sensitive_key_canaries(tmp_path):
+    source = tmp_path / "privacy.jsonl"
+    canary_key = "password_do_not_repeat_this_canary"
+    source.write_text(
+        json.dumps(
+            {
+                "source": "support",
+                "source_ref": "support:privacy",
+                "occurred_at": "2026-09-01T00:00:00Z",
+                "summary": "A safe summarized observation.",
+                "customer_impact": "The customer needed another attempt.",
+                canary_key: "not-a-real-secret",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = load_feedback_jsonl(source)
+    review = build_weekly_review(
+        result.records,
+        week_start=date(2026, 9, 1),
+        rejected=result.rejected,
+    )
+
+    assert canary_key not in result.rejected[0].error
+    assert canary_key not in review
+
+
+def test_rejection_diagnostics_do_not_reproduce_invalid_field_values(tmp_path):
+    source = tmp_path / "invalid-value.jsonl"
+    canary_value = "invalid-private-value-canary"
+    source.write_text(
+        json.dumps(
+            {
+                "source": "support",
+                "source_ref": "support:invalid-value",
+                "occurred_at": "2026-09-01T00:00:00Z",
+                "summary": "A safe summarized observation.",
+                "customer_impact": "The customer needed another attempt.",
+                "severity": canary_value,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = load_feedback_jsonl(source)
+
+    assert len(result.rejected) == 1
+    assert result.rejected[0].error.startswith("invalid_value:")
+    assert canary_value not in result.rejected[0].error
+
+
+def test_resolved_unverified_blocker_is_counted_consistently_by_path():
+    record = normalize_feedback(
+        {
+            "source": "support",
+            "source_ref": "support:resolved-blocker",
+            "occurred_at": "2026-09-01T00:00:00Z",
+            "summary": "A privacy control failed and was changed.",
+            "customer_impact": "Customer outcome verification is still pending.",
+            "severity": "high",
+            "status": "resolved",
+            "impact_areas": ["privacy"],
+            "happy_path_ids": ["HP-PRIVACY"],
+            "resolution_verification": {"status": "pending"},
+        }
+    )
+
+    review = build_weekly_review([record], week_start=date(2026, 9, 1))
+
+    assert "Open blockers: 1" in review
+    assert "| HP-PRIVACY | 1 | 0 | 1 |" in review
+
+
+def test_weekly_review_excludes_records_after_the_as_of_cutoff():
+    future = normalize_feedback(
+        {
+            "source": "support",
+            "source_ref": "support:future",
+            "occurred_at": "2026-10-01T00:00:00Z",
+            "summary": "A future critical report.",
+            "customer_impact": "The future customer path is blocked.",
+            "severity": "critical",
+        }
+    )
+
+    review = build_weekly_review([future], week_start=date(2026, 9, 1))
+
+    assert "Feedback reviewed: 0" in review
+    assert "Open blockers: 0" in review
+    assert "A future critical report" not in review
+    assert "As-of cutoff: 2026-09-08 00:00:00 UTC (exclusive)" in review
+
+
+def test_conflicting_duplicate_ids_are_excluded_and_reported():
+    base = {
+        "feedback_id": "FB-CONFLICT",
+        "source": "support",
+        "source_ref": "support:conflict",
+        "occurred_at": "2026-09-01T00:00:00Z",
+        "customer_impact": "The customer needed another attempt.",
+        "source_record_version": "1",
+    }
+    first = normalize_feedback({**base, "summary": "First version."})
+    second = normalize_feedback(
+        {**base, "summary": "Conflicting version.", "source_record_version": "2"}
+    )
+
+    review = build_weekly_review([first, second], week_start=date(2026, 9, 1))
+
+    assert "Feedback reviewed: 0" in review
+    assert "[FB-CONFLICT] conflicting record versions were excluded from metrics" in review
+
+
+def test_verified_resolution_requires_verified_record_status():
+    with pytest.raises(FeedbackValidationError, match="invalid_lifecycle"):
+        normalize_feedback(
+            {
+                "source": "support",
+                "source_ref": "support:lifecycle",
+                "occurred_at": "2026-09-01T00:00:00Z",
+                "summary": "The outcome was verified without closing the record.",
+                "customer_impact": "The lifecycle state is contradictory.",
+                "status": "resolved",
+                "resolution_verification": {
+                    "status": "verified",
+                    "evidence_refs": ["test:journey"],
+                    "verified_at": "2026-09-01T12:00:00Z",
+                },
+            }
+        )
+
+
+def test_missing_source_identity_is_rejected():
+    with pytest.raises(FeedbackValidationError, match="missing_source_identity"):
+        normalize_feedback(
+            {
+                "source": "support",
+                "occurred_at": "2026-09-01T00:00:00Z",
+                "summary": "A report without a stable source identity.",
+                "customer_impact": "It cannot be reconciled safely.",
+            }
+        )
+
+
+def test_exact_duplicate_ids_are_counted_once():
+    record = normalize_feedback(
+        {
+            "feedback_id": "FB-DUPLICATE",
+            "source": "support",
+            "source_ref": "support:duplicate",
+            "occurred_at": "2026-09-01T00:00:00Z",
+            "summary": "One observation exported twice.",
+            "customer_impact": "It should count once.",
+        }
+    )
+
+    review = build_weekly_review([record, record], week_start=date(2026, 9, 1))
+
+    assert "Feedback reviewed: 1" in review
+    assert "[FB-DUPLICATE] 2 identical copies were counted once." in review

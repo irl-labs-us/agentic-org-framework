@@ -14,6 +14,32 @@ Point any capable agent — Claude, GPT, Gemini, whatever you're already using �
 
 Prefer to do it by hand instead? See "Manual setup" below.
 
+### Mechanical installation
+
+The interview produces the decisions; `.agentic-org.json` makes those decisions executable. Copy `.agentic-org.example.json`, choose a `lightweight`, `solo`, or `multi` profile, set repository and leadership values, and select optional modules. Then run:
+
+```bash
+python3 scripts/scaffold_framework.py --target .          # dry run
+python3 scripts/scaffold_framework.py --target . --apply  # write reviewed changes
+python3 scripts/framework_doctor.py --repo .              # local consistency
+python3 scripts/framework_doctor.py --repo . --github     # include branch protection
+```
+
+The scaffold owns only files listed in `.agentic-org.generated.json`. Re-running it is idempotent; it updates files that still match their prior generated hash and stops before overwriting local edits. Configuration drives branch names, remote, profile, lease ledger, risk paths, and optional modules across the scripts and workflows.
+
+For a brownfield repository, keep an existing authoritative file human-owned
+with `--preserve-existing PATH` after reviewing it against the generated
+equivalent. Repeat the flag for each conflict. Preserved files are recorded in
+the generated-state manifest and doctor reports them as manual controls; the
+scaffold never overwrites or claims ownership of them.
+
+`lightweight` uses the short mission packet and may omit secondary leadership,
+path-list, and disabled-module fields; safe defaults fill them. `solo` installs
+the full mission and organizational communication packet for one operator.
+`multi` adds the live lease ledger and concurrent-writer controls. Every profile
+retains candidate-bound review, Git governance, the control matrix, and the
+Agent Governance Charter required for consequential or production use.
+
 ## How the parts fit together
 
 ```mermaid
@@ -56,7 +82,12 @@ Part III.8 itself forks once at onboarding: **solo-operator** (one human directi
 |---|---|
 | `FRAMEWORK.md` | The framework itself: strategy, budget/circuit-breakers, org structure, git discipline, agent governance, evaluation, debugging/escalation, postmortem-derived guardrails, and condensed appendix templates. Read this first. |
 | `SETUP.md` | Agent-agnostic interview playbook — the fastest way to adopt this framework. See Quick start above. |
+| `.agentic-org.example.json` | Versioned example for the shared project configuration. Copy it to `.agentic-org.json`; `multi` requires a numeric GitHub ledger issue URL, while `solo` and `lightweight` require `null`. |
+| `scripts/scaffold_framework.py` | Dry-run-by-default, idempotent installer for configured docs, scripts, and workflows. It records generated-file hashes and refuses to overwrite human edits. |
+| `scripts/framework_doctor.py` | Checks configuration, required artifacts, unresolved placeholders, module/profile consistency, and generated-file drift. `--github` also checks required branch-protection status contexts. |
+| `templates/control-matrix.json` / generated `docs/CONTROL_MATRIX.md` | Versioned control inventory and profile/module-specific rendered matrix showing risk, owner, evidence, failure behavior, and enforcement status. Doctor checks applicable rows. |
 | `templates/MISSION_PACKET_TEMPLATE.md` | Full mission packet to copy for every new assignment (condensed version is in `FRAMEWORK.md` Appendix D). |
+| `templates/LIGHTWEIGHT_MISSION_TEMPLATE.md` | Short packet for bounded single-operator work: outcome, authority, limits, evidence, risk gates, and stop/handoff. The full packet remains available when coordination grows. |
 | `templates/GIT_OPERATIONS_COVENANT.md` | The full git governance contract referenced by `FRAMEWORK.md` §III.8 — merge authority, worktree leases, single-use branches, PR metadata contract, the "Solo-operator mode" section for single-operator repos, and "Keeping the Changed-file manifest from going stale" covering the `--body-file` preflight and the two optional manifest-sync automations below. |
 | `templates/GIT_WORK_REGISTRY.md` | Blank audit-snapshot registry that mirrors your live lease ledger (a pinned GitHub issue — see below). Multi-operator mode only; a solo-operator repo has no ledger to snapshot. |
 | `templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` | Generic org/communication-bus diagrams referenced by `FRAMEWORK.md` §III.6. |
@@ -64,15 +95,18 @@ Part III.8 itself forks once at onboarding: **solo-operator** (one human directi
 | `.github/workflows/git-governance.yml` | CI check that fails a PR closed when governance metadata is missing, stale, or inconsistent. Cancels superseded runs for the same PR and reads live PR body/head together at execution time (not the triggering event's snapshot) to avoid a race on rapid pushes/edits. Concurrency is SHA-scoped so a manifest-sync rerun (below) can't cancel a legitimate in-progress run for a newer commit. |
 | `scripts/create_feature_worktree.py` | Creates a single-use feature branch/worktree directly from a freshly-fetched exact base SHA; fails if that SHA is no longer the remote tip. |
 | `scripts/check_pr_readiness.py` | Pre-flight check to run before opening/updating a **feature** PR (strict ancestry model — do not use for releases). `--body-file <path> [--solo-mode]` validates a drafted PR body locally the exact way CI will — required headings, every Changed-file manifest line individually checked, declared manifest vs. the real diff — catching malformed-but-plausible-looking manifest lines before they become a confusing CI failure. |
-| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. Uses merge-base scope for the `staging`→`main` release path and exact ancestry for everything else — see the note below. `SOLO_MODE` (or `--solo-mode`) drops only the lease-ledger requirement; every other check stays mandatory. Forbidden-path matching (`.env`, `.idea/`, `node_modules/`, etc.) applies at any nesting depth, not just the repo root. |
-| `scripts/create_release_pr.py` | Atomically creates or repairs the single `staging`→`main` release PR with a complete, governance-valid body. Never merges. Use this instead of opening a release PR by hand. `--solo-mode` renders the release body without lease-ledger fields. `--sync-mechanical` regenerates only the release PR's fully-mechanical `## Branch integration` and `## Changed-file manifest` sections (preserving human-written `## Outcome`/`## Coordination and scope`/`## Evidence` verbatim) and reruns the last failed governance check for the current head — run it on every push to `staging` to keep the persistent release PR from going stale. |
-| `scripts/sync_pr_manifest.py` | Optional automation: regenerates only an ordinary **feature** PR's `## Changed-file manifest` section (never `## Branch integration`, which mixes mechanical SHA lines with human-checked boxes `check_git_governance.py` never parses from body text) and reruns the last failed governance check for the current head. Run on every push to a feature branch to stop the manifest from going stale as new commits land — a no-op when no open PR matches the pushed branch. |
-| `.github/workflows/release-pr-sync.yml` / `feature-pr-manifest-sync.yml` | Example workflows wiring `create_release_pr.py --sync-mechanical` and `sync_pr_manifest.py` to `push` events on `staging` and feature branches respectively — the two optional manifest-staleness automations above. |
+| `scripts/check_git_governance.py` | The policy engine `git-governance.yml` runs in CI; also runnable locally. It validates exact manifests, authorized path scope, meaningful required sections, and structured candidate-bound review records. High-risk records require independent approval; evidence truth remains a human decision. |
+| `scripts/create_release_pr.py` | Atomically creates or repairs the configured integration-to-release PR. New releases require explicit scope reference/path, reviewer, evidence reference, decision timestamp, and test evidence arguments; the reviewed head is bound automatically. `--sync-mechanical` updates only mechanical sections and dispatches or identifies exact-head governance validation. Never merges. |
+| `scripts/sync_pr_manifest.py` | Optional automation: recomputes only a feature PR's manifest against exact refs, aborts or retries on body/head races, preserves every human section, and dispatches or identifies trusted governance validation for the resulting exact head. |
+| `templates/github-workflows/` | Optional manifest-sync workflows. The scaffold renders configured branch names and installs them under `.github/workflows/` only when `modules.manifest_sync` is enabled. |
 | `templates/customer-feedback/` | Optional §III.9 add-on for products with direct end users: normalized feedback intake, happy-path registry, weekly-review templates, and the Build-agent instructions that wire them into every customer-facing change. See that directory's own README. |
 | `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` | Optional §III.10 add-on for any mission with a user-facing creative surface (UI, visual design, product copy): rationale, entropy-seeding/critic-loop prompt skeletons, and a delivery checklist (subtraction pass, project-specific AI-tells list, human copy edit). |
 | `templates/AGENT_GOVERNANCE_TEMPLATE.md` | Mandatory §III.11 charter for any production agent: acceptable and prohibited use, prohibited data, risk-tiered human review, Governance Board and escalation, pre-launch/red-team gates, drift and incident monitoring, and independent outcome audits. |
-| `scripts/customer_feedback_harness.py` | Privacy-safe feedback normalization and deterministic weekly-review rendering behind §III.9. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
+| `scripts/customer_feedback_harness.py` | Strict feedback normalization and deterministic as-of weekly-review rendering behind §III.9. It isolates malformed rows, applies privacy intake guardrails to decoded metadata, and surfaces conflicting record identities. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
 | `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
+| `scripts/conformance/` | Product-neutral adapter protocol, restartable reference adapter, and executable fixtures for budgets, attempts, approvals, persistence, and revocation. This is a contract test kit, not a production runtime. |
+| `.github/workflows/template-quality.yml` | Source-template CI: unit/conformance tests, Python compilation, workflow/link checks, and a lightweight/solo/multi × default/custom branch scaffold-and-doctor matrix. |
+| `pyproject.toml` | Python/test metadata for the framework harness; install the `test` extra to run the checked-in pytest suite. |
 
 ## Manual setup
 
@@ -80,16 +114,13 @@ If you'd rather not run the interview, `SETUP.md`'s sections map directly onto t
 
 1. Click **Use this template** → **Create a new repository** (or copy these files into an existing repo).
 2. Fill in Part I's Strategy Constitution (`FRAMEWORK.md` §I.3) and save it as `docs/strategy/STRATEGY.md`. Name your two leadership roles (§III.2) and adapt the value-stream stages in §III.4 to your product.
-3. **Decide solo- or multi-operator** (§III.8): is there anyone else — another human, or another operator's agent — who could plausibly hold write access to this repo at the same time as you? If not, it's solo-operator mode; skip step 4 and everywhere below marked multi-operator only. If yes, continue as written.
-4. Move `templates/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md` (multi-operator only), `MISSION_PACKET_TEMPLATE.md`, and `SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` into `docs/coordination/`. Copy `templates/AGENT_GOVERNANCE_TEMPLATE.md` to `docs/governance/AGENT_GOVERNANCE.md`. Replace `{CEO}`, `{Strategy & Portfolio Lead}`, `{Assurance Owner}`, and `{Your Product}` with real names throughout.
-5. **Multi-operator only:** create a pinned GitHub issue to serve as your live Git-work lease ledger (title it "Git-Work Lease Ledger"; see `SETUP.md` §5 for the exact starter body). Replace the `<org>/<repo>/issues/<lease-ledger-issue-number>` placeholders in `docs/coordination/GIT_OPERATIONS_COVENANT.md`, `GIT_WORK_REGISTRY.md`, `.github/pull_request_template.md`, `scripts/check_git_governance.py` (`LIVE_LEDGER_URL`), and `scripts/create_release_pr.py` (`LIVE_LEDGER_URL`) with the real issue URL. **Solo-operator:** instead set `SOLO_MODE = True` in `scripts/check_git_governance.py` and always pass `--solo-mode` to `scripts/create_release_pr.py`; there is no ledger issue to create.
-6. Set your default integration branch/remote names if they differ from `staging`/`main`/`origin` — update the defaults in `scripts/check_pr_readiness.py`, `scripts/create_feature_worktree.py`, and `scripts/create_release_pr.py`.
-7. `.github/pull_request_template.md` and `.github/workflows/git-governance.yml` stay where they are — GitHub requires that location.
-8. If the product has direct end users, adopt §III.9: copy `templates/customer-feedback/` into `docs/customer-feedback/` per that directory's README, replacing `{Your Product}` and `{CEO}` throughout, and add a pointer to `BUILD_AGENT_INSTRUCTIONS.md` in your `AGENTS.md`/`CLAUDE.md`. Skip this for an internal-only tool.
-9. If any mission has a user-facing creative surface (UI, visual design, product copy), adopt §III.10: copy `templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md` into `docs/design/AI_OUTPUT_DISCIPLINE.md` and add a pointer to it in `AGENTS.md`/`CLAUDE.md`. Skip this for backend/infra-only products.
-10. Complete and approve the §III.11 Agent Governance Charter before production use. Fill every policy, decision-right, pre-launch gate, monitoring, incident, and outcome-audit field; add a pointer to it in your `AGENTS.md`/`CLAUDE.md`.
-11. **Optional, once git activity picks up:** if this project expects enough concurrent branches/release-PR lifetime that the Changed-file manifest will go stale often (not just occasionally), also move `.github/workflows/release-pr-sync.yml` and `.github/workflows/feature-pr-manifest-sync.yml` into `.github/workflows/`, alongside `scripts/sync_pr_manifest.py`. See `GIT_OPERATIONS_COVENANT.md`'s "Keeping the Changed-file manifest from going stale" section.
-12. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
+3. Copy `.agentic-org.example.json` to `.agentic-org.json`. Choose `lightweight`, `solo`, or `multi`; enter the real product, repository, remote, and branch names. Solo and multi require the complete leadership, path-policy, and module fields; lightweight may use the reduced defaults described above.
+4. **Multi-operator only:** create and pin the Git-work Lease Ledger issue described in `SETUP.md` §5, then put its full numeric issue URL in `git_governance.ledger_url`. `solo` and `lightweight` use `null`.
+5. Run `python3 scripts/scaffold_framework.py --target .`, review the dry run, then rerun with `--apply`. This renders names and branches, installs the profile-appropriate documents, and enables only selected modules.
+6. Review the concise generated `AGENTS.md`, which links the configuration, control matrix, startup instructions, and profile-appropriate mission packet. A pre-existing customized `AGENTS.md` produces a scaffold conflict instead of being overwritten.
+7. Complete and approve the generated Agent Governance Charter before production use. Fill every policy, decision-right, pre-launch gate, monitoring, incident, and outcome-audit field.
+8. Run `python3 scripts/framework_doctor.py --repo .`; after configuring GitHub branch protection, run it again with `--github`.
+9. Run Part VII's Day-0 checklist in `FRAMEWORK.md`.
 
 **Note on the release path:** `main` normally diverges from a persistent `staging` branch after every GitHub release merge (the release merge commit only exists on `main`), so a naive "base must be an ancestor of head" ancestry check will fail on the *second* release PR, not the first — this is the failure mode `scripts/check_git_governance.py` and `scripts/create_release_pr.py` are built to avoid. If you're adopting this checker on a repo where `main`/`staging` have already diverged by more than one prior release, you'll need the one-time bootstrap noted in `templates/GIT_OPERATIONS_COVENANT.md`'s release contract before the first governed release PR can pass.
 

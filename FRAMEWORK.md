@@ -587,12 +587,19 @@ These are not generic best practices — they are specific corrections to a docu
 
 ## Part VII — Adoption Guide: Day-0 Checklist
 
+Choose the smallest profile that fits. `lightweight` keeps Git governance,
+risk gates, the control matrix, and production Agent Governance while using the
+short mission packet and omitting the full organizational communication packet.
+Move to `solo` when the fuller operating rhythm is useful, and to `multi` when
+another human or operator's agent can hold concurrent write authority. Profile
+choice never weakens high-risk review or production governance.
+
 1. **State the vision, diagnosis, guiding policy, and human-in-command boundary** (Part I). Get CEO sign-off in writing, versioned.
 2. **Stand up the two roles** — CEO and Strategy & Portfolio Lead — even if the same human holds both.
 3. **Name the Build lanes you actually need** (at minimum Product+Delivery and an independent Assurance function; add Strategic Discovery only when you have a named future decision to research).
 4. **Name your customer-facing value-stream stages**, if the product has direct end users, and assign one accountable owner for the whole journey. If so, also adopt §III.9's customer-feedback and happy-path discipline (`templates/customer-feedback/`) — an internal-only tool can skip this.
 5. **Adopt and approve the Agent Governance Charter** (§III.11): acceptable use, prohibited data/uses, required human review, decision board and escalation, pre-launch/red-team gates, monitoring owners/thresholds/cadence, incident reporting, and outcome audits. Add it to agent startup instructions. No production use proceeds with required fields still `TBD`.
-6. **Write the first Mission Packet** (Appendix D) for the very first piece of work, however small, and enforce Part II's economic allocation section on it — including a prototype's very first "hello world" mission. The discipline should exist before the first real dollar/token is spent, not after the first overrun.
+6. **Write the first Mission Packet** using the lightweight template for a lightweight adoption or Appendix D/full template for solo and multi. Enforce the economic allocation and stop limits from the first piece of work.
 7. **Schedule the Weekly Portfolio Review** (Appendix A) from week one, even with one mission in it; include the governance-monitoring review for any deployed agent.
 8. **Adopt the coordination handshake and evaluation acknowledgement** (Appendix E) as the literal words every agent states before starting work.
 9. **Revisit Part I only when strategy changes; run Part II every week; treat Parts III–VI as the constitution every agent reads before every assignment.**

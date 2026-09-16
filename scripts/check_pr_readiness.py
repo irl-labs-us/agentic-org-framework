@@ -21,6 +21,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from framework_config import FrameworkConfig, FrameworkConfigError, load_framework_config
+from check_git_governance import (
+    declared_authorized_scope,
+    is_high_risk,
+    path_is_authorized,
+    require_meaningful_section,
+    validate_review_evidence,
+)
 
 # Mirrors scripts/check_git_governance.py's SOLO_MODE (duplicated, not
 # imported, matching this repo's established self-contained-script pattern
@@ -72,7 +80,14 @@ def body_section(body: str, heading: str) -> list[str]:
     return lines[start:end]
 
 
-def validate_manifest_format(body_file: Path, base_ref: str, solo_mode: bool) -> None:
+def validate_manifest_format(
+    body_file: Path,
+    base_ref: str,
+    solo_mode: bool,
+    *,
+    head_sha: str,
+    config: FrameworkConfig,
+) -> None:
     """
     Local pre-flight equivalent of check_git_governance.py's manifest checks:
     every required heading is present, every non-blank line in the Changed-
@@ -82,7 +97,7 @@ def validate_manifest_format(body_file: Path, base_ref: str, solo_mode: bool) ->
     """
     body = body_file.read_text(encoding="utf-8")
     for heading in ("Outcome", "Coordination and scope", "Evidence"):
-        body_section(body, heading)
+        require_meaningful_section(body, heading)
     if not solo_mode:
         body_section(body, "Git-work lease")
 
@@ -123,6 +138,28 @@ def validate_manifest_format(body_file: Path, base_ref: str, solo_mode: bool) ->
         if extra:
             detail.append(f"not in diff: {', '.join(extra)}")
         fail("changed-file manifest mismatch; " + "; ".join(detail))
+    authorized = declared_authorized_scope(body)
+    outside_scope = sorted(path for path in actual if not path_is_authorized(path, authorized))
+    if outside_scope:
+        fail("changed files outside authorized scope: " + ", ".join(outside_scope))
+    numstat = git("diff", "--numstat", f"{base_ref}..HEAD")
+    changed_lines = sum(
+        int(value)
+        for line in numstat.splitlines()
+        for value in line.split("\t", 2)[:2]
+        if value.isdigit()
+    )
+    high_risk = (
+        len(actual) > 20
+        or changed_lines > 1000
+        or any(is_high_risk(path, config.git_governance.high_risk_paths) for path in actual)
+    )
+    validate_review_evidence(
+        body,
+        head_sha=head_sha,
+        high_risk=high_risk,
+        config=config,
+    )
     print(f"PASS: manifest format and content match the {base_ref}..HEAD diff ({len(actual)} files)")
 
 
@@ -147,10 +184,10 @@ def fail(message: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path)
     parser.add_argument(
         "--target-ref",
-        default="origin/staging",
-        help="Fetched remote-tracking ref the PR will target (default: origin/staging)",
+        help="Fetched remote-tracking ref the PR will target; overrides project config",
     )
     parser.add_argument(
         "--recorded-base",
@@ -180,28 +217,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--solo-mode",
-        # Was action="store_true": combined with default=SOLO_MODE, there
-        # was no way to pass --solo-mode=False once SOLO_MODE was True --
-        # the flag could only ever be absent (falls back to the True
-        # default) or present (sets True again, a no-op). Harmless while
-        # SOLO_MODE is False here (this template's own default), but once a
-        # project adopts solo-operator mode (SOLO_MODE flips to True in
-        # check_git_governance.py, and presumably here too), this local
-        # preflight would have no way to require the "## Git-work lease"
-        # section on a per-invocation basis -- it'd just silently inherit
-        # whatever the new default is, with no override in either direction
-        # (code-review correctness finding, 2026-09-10, found during
-        # real-world dogfooding). BooleanOptionalAction adds a paired
-        # --no-solo-mode flag, fixing that, with no change to today's
-        # default behavior.
         action=argparse.BooleanOptionalAction,
-        default=SOLO_MODE,
+        default=None,
         help=(
-            "Skip the Git-work lease heading requirement (matches check_git_governance.py's "
-            f"SOLO_MODE). Defaults to this script's own SOLO_MODE constant (currently {SOLO_MODE}) "
-            "-- update that constant alongside check_git_governance.py's if you adopt solo-operator "
-            "mode via SETUP.md, so an operator following the covenant's prose instruction without "
-            "spelling out this flag still gets the behavior that actually matches this project. "
+            "Skip the Git-work lease heading requirement. Defaults to the configured profile. "
             "Pass --no-solo-mode to require the Git-work lease section explicitly."
         ),
     )
@@ -209,13 +228,18 @@ def main() -> None:
 
     try:
         root = git("rev-parse", "--show-toplevel")
+        config = load_framework_config(repo=root, path=args.config, required=False)
+        target_ref = args.target_ref or (
+            f"{config.repository.remote}/{config.repository.integration_branch}"
+        )
+        solo_mode = (config.solo_mode or SOLO_MODE) if args.solo_mode is None else args.solo_mode
         branch = git("branch", "--show-current")
         head = git("rev-parse", "HEAD")
-        target = git("rev-parse", args.target_ref)
+        target = git("rev-parse", target_ref)
         recorded = git("rev-parse", args.recorded_base)
-        merge_base = git("merge-base", "HEAD", args.target_ref)
+        merge_base = git("merge-base", "HEAD", target_ref)
         status = git("status", "--porcelain")
-    except RuntimeError as exc:
+    except (FrameworkConfigError, RuntimeError) as exc:
         fail(str(exc))
 
     if not branch:
@@ -227,17 +251,17 @@ def main() -> None:
     if target != recorded:
         fail(
             f"target advanced or recorded base is wrong: recorded {recorded}, "
-            f"current {args.target_ref} is {target}; rebase or recreate and rerun evidence"
+            f"current {target_ref} is {target}; rebase or recreate and rerun evidence"
         )
     if merge_base != target:
         fail(
-            f"branch is not based on current {args.target_ref}: merge-base {merge_base}, "
+            f"branch is not based on current {target_ref}: merge-base {merge_base}, "
             f"target {target}; rebase or recreate before opening/updating the PR"
         )
     if args.predecessor or args.stacked:
         fail("stacked pull requests are prohibited; wait, then recreate from the current target")
 
-    target_remote = args.target_ref.split("/", 1)[0] if "/" in args.target_ref else ""
+    target_remote = target_ref.split("/", 1)[0] if "/" in target_ref else ""
     remote_ref = f"refs/remotes/{target_remote}/{branch}" if target_remote else ""
     try:
         remote_head = git("rev-parse", remote_ref) if remote_ref else ""
@@ -253,16 +277,24 @@ def main() -> None:
     print(f"repository: {root}")
     print(f"branch: {branch}")
     print(f"head: {head}")
-    print(f"target: {args.target_ref} @ {target}")
+    print(f"target: {target_ref} @ {target}")
     print("publication: independent")
     if not remote_head:
         print("note: no fetched remote branch with this name exists yet")
 
     if args.body_file:
         try:
-            validate_manifest_format(args.body_file, args.target_ref, args.solo_mode)
+            validate_manifest_format(
+                args.body_file,
+                target_ref,
+                solo_mode,
+                head_sha=head,
+                config=config,
+            )
         except OSError as exc:
             fail(f"could not read --body-file: {exc}")
+        except RuntimeError as exc:
+            fail(str(exc))
 
 
 if __name__ == "__main__":

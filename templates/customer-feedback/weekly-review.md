@@ -8,6 +8,7 @@ prepared_by: "role/person"
 accountable_decision_owner: "{CEO}"
 reviewers: []
 decision_date: null
+as_of_cutoff: "YYYY-MM-DDT00:00:00Z" # exclusive
 source_coverage:
   in_app: complete
   build_chats: reconciled
@@ -16,6 +17,11 @@ source_coverage:
   build_chat_registered_telemetry_and_tests: complete
 known_gaps: []
 ```
+
+The generated review is an as-of view at `period_end` 00:00 UTC: observations
+at or after that cutoff are excluded, while older unresolved records carry
+forward. This does not reconstruct a historical status unless the input export
+itself preserves historical versions; record the export snapshot used.
 
 ## Executive customer outcome
 

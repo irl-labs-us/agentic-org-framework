@@ -1,6 +1,6 @@
 <!--
 REQUIRED FOR GIT GOVERNANCE:
-- This is the feature-PR template. For persistent staging -> main releases, use
+- This is the feature-PR template. For persistent integration -> release PRs, use
   scripts/create_release_pr.py; do not open an empty release PR manually.
 - Keep every ## heading in this template exactly as written.
 - Do not replace this template with an abbreviated --body or --fill body.
@@ -8,13 +8,17 @@ REQUIRED FOR GIT GOVERNANCE:
   numeric live-ledger `LEASE GRANTED` comment link (`#issuecomment-<digits>`)
   inside the "## Git-work lease" section, not only in "## Branch integration".
 - Solo-operator mode (see GIT_OPERATIONS_COVENANT.md and
-  scripts/check_git_governance.py's SOLO_MODE flag): delete the
+  the `solo` profile in `.agentic-org.json`): delete the
   "## Git-work lease" section entirely and replace the two lease lines under
   "## Branch integration" with a single "- Git-work lease: N/A —
   solo-operator mode" line. The governance check only requires the lease
-  section when SOLO_MODE is False.
+  section when the configured profile is `multi`.
 - List the exact current diff, one backticked path per line, under
   "## Changed-file manifest".
+- List the approved path boundary separately under "## Authorized scope".
+- Bind the structured review record to the exact current head SHA. The checker
+  validates the record's shape and binding; it cannot validate whether the
+  reviewer or evidence is truthful or sufficient.
 The workflow parses these sections mechanically and fails closed when they are
 missing, renamed, misplaced, or inconsistent with the current PR head.
 -->
@@ -66,6 +70,24 @@ missing, renamed, misplaced, or inconsistent with the current PR head.
 ## Changed-file manifest
 
 <!-- List every path in the current base..head diff exactly once as: - `path/to/file` -->
+
+## Authorized scope
+
+<!-- Use exact paths or a directory prefix ending in /**. Bare ** is prohibited. -->
+- Scope reference:
+- Approved path: `path/to/file`
+
+## Risk and review evidence
+
+- Risk class: ordinary
+- Reviewer:
+- Reviewer independence: not-required
+- Decision: approve
+- Reviewed head SHA:
+- Policy/config version: agentic-org-config/v1
+- Evidence references:
+- Decision timestamp:
+- Decision expiry: None
 
 ## Evidence
 

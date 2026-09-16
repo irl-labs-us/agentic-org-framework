@@ -26,6 +26,17 @@ defaults without forking either file — see the module's docstring:
   feedback must never contain (e.g. a product handling resumes would add
   `resume`, `cover_letter`).
 
+The built-in key and credential-pattern checks are intake guardrails, not a
+complete data-loss-prevention system. Source adapters must minimize and
+summarize data before export. Object and JSON-string metadata receive the same
+recursive validation, and rejection diagnostics use stable error categories
+without echoing arbitrary rejected keys or values.
+
+Weekly reports are as-of the exclusive period-end cutoff. Later observations
+are excluded, older unresolved records carry forward, identical repeated IDs
+are counted once, and conflicting versions are withheld from metrics until
+reconciled.
+
 ## Adopting this into a project
 
 1. Copy the three `*_TEMPLATE.md` files per the "Adopting this template"
