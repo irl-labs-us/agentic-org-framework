@@ -179,5 +179,7 @@ def test_non_approving_review_decision_blocks_validation(tmp_path, decision):
     repo, base_sha, head_sha, body = governed_feature_repo(tmp_path)
     body.write_text(body.read_text().replace("Decision: approve", f"Decision: {decision}"))
 
-    with pytest.raises(governance.GovernanceError, match=f"review decision is {decision}"):
+    with pytest.raises(governance.GovernanceError, match=f"review decision is {decision}") as exc:
         governance.validate(args_for(repo, base_sha, head_sha, body))
+    assert "intentional review gate, not a code or test failure" in str(exc.value)
+    assert "Editing the PR body reruns this check" in str(exc.value)
