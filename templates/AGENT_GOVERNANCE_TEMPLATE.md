@@ -1,8 +1,10 @@
 # {Your Product} Agent Governance Charter
 
-**Status:** Proposed until approved by {CEO}  
-**Owner:** {Strategy & Portfolio Lead}  
-**Independent assurance owner:** {Assurance Owner}  
+**Status:** Proposed until approved by {CEO}
+
+**Owner:** {Strategy & Portfolio Lead}
+
+**Independent assurance owner:** {Assurance Owner}
 **Version / approved date / next review:** [version] / [date] / [date]
 
 This charter is the operating control for every agent that can read non-public
