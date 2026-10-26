@@ -23,6 +23,27 @@ This framework separates three things that RoleWise's own history shows get dang
 
 Read this document top to bottom the first time you stand up a product. After that, treat Part I as something you revisit only when strategy changes, Part II as a living weekly ritual, and Parts III–V as the standing constitution your agents read before every assignment.
 
+### Product lifecycle: who leads when?
+
+Use **Discover → Define → Design → Build → Launch → Iterate** to locate work
+within the product lifecycle. Product leads Discover and Define, Design leads
+Design, Engineering leads Build, and Product coordinates Launch with the
+designated release owner making the operational go/no-go decision. Iteration
+leadership follows the problem: Product for priorities, Design for usability,
+Engineering for reliability or performance. Evidence can return work to any
+earlier stage.
+
+For each mission, name the **lifecycle stage, phase lead, exit evidence, and
+next owner**. The lead moves the phase forward within existing decision rights;
+Product, Design, Engineering, and Assurance contribute throughout. One person
+may hold several roles, including in the lightweight profile. The ownership
+table and handoff rules are in §III.12.
+
+Lifecycle stages describe the purpose of the work; **funded execution phases**
+describe the bounded work authorized under Part II. A Build stage might have
+separately funded implementation and verification phases. A lifecycle transition
+or successful review never grants the next phase's budget or waives a gate.
+
 ### Why a framework instead of ad hoc management
 
 Two things go wrong by default when a human delegates real work to a team of capable, eager agents, and both are documented failures in RoleWise's own record, not hypotheticals:
@@ -117,7 +138,7 @@ This is the part of the framework that RoleWise's postmortem shows was previousl
 
 ### II.1 Core principle: money and tokens are a scarce, staged resource, not a description of effort
 
-Funding is staged by phase (discovery → design → implementation → verification → staging → pilot). Passing one phase's gate does **not** authorize the next phase's budget — a technical or QA pass is evidence of quality, not a budget grant. This single rule, correctly enforced, would have stopped the memory-architecture overrun at its first corrective round instead of its fifth.
+Funding is staged by execution phase (for example, discovery, definition, design, implementation, verification, staging, or pilot). These allocations sit within the product lifecycle (§III.12); they are not a mandatory one-to-one sequence of lifecycle stages. Passing one phase's gate does **not** authorize the next phase's budget — a technical or QA pass is evidence of quality, not a budget grant. This single rule, correctly enforced, would have stopped the memory-architecture overrun at its first corrective round instead of its fifth.
 
 ### II.2 Circuit breakers (mandatory defaults; a mission packet may set stricter ones, never looser)
 
@@ -221,6 +242,11 @@ Every mission — feature program, redesign, debug case, experiment, audit, rese
   and—if production is in scope—monitoring and safe-disable owners;
 - current status (`proposed / ready / active / needs_coordination / blocked / in_review / complete / paused`);
 - its funded phase and everything from Part II.5.
+
+Also record the lifecycle stage, phase lead, exit evidence, and next owner under
+§III.12. The customer-facing value-stream stage above describes where the user
+receives value; the lifecycle stage describes where the team is developing or
+improving the product.
 
 **Cross-organization platform missions** — a capability that would serve both organizations (RoleWise's memory-architecture program is the cautionary example) stays a mission overlay unless the CEO explicitly approves a durable organizational change. It gets one execution lane, named acceptance owners, and independent review — it does not become a third organization or an executive layer just because its scope happens to cross teams. This is the specific guardrail against a genuinely useful-sounding platform capability quietly becoming a permanent, unaccountable department.
 
@@ -473,6 +499,56 @@ Adopt this by copying `templates/AGENT_GOVERNANCE_TEMPLATE.md` to
 obtaining the named approvals, and adding a pointer to it in the project's
 `AGENTS.md`/`CLAUDE.md`. Every agent in scope reads it before substantive work.
 
+### III.12 Product lifecycle and phase leadership
+
+This lifecycle connects the framework's strategy, budget, and execution rules
+to the product work in progress. Phase leadership is an assignment within the
+existing Build organization, not a new department or permanent agent role.
+
+| Lifecycle stage | Phase lead | Exit evidence for the next decision |
+|---|---|---|
+| **Discover** | Product | A clear customer problem, supporting evidence, key uncertainties, and a decision worth pursuing |
+| **Define** | Product | A bounded outcome, success criteria, non-goals, and an approved allocation for the proposed next work |
+| **Design** | Design | A proposed experience, validation evidence appropriate to the risk, and Engineering feasibility input |
+| **Build** | Engineering | A working implementation, verification evidence, and required independent review |
+| **Launch** | Product coordinates; designated release owner makes the operational go/no-go decision | Required release gates passed, rollout and rollback plans, and named monitoring owners |
+| **Iterate** | Lead follows the problem: Product for priorities, Design for usability, Engineering for reliability or performance | Observed results against success criteria and a recorded decision to improve, investigate, expand, or stop |
+
+**Lead means accountable for moving the phase forward within approved scope.**
+Product, Design, Engineering, and independent Assurance contribute throughout;
+the table does not create exclusive work silos. The phase lead coordinates
+inputs and prepares the evidence for acceptance by the named destination owner.
+The mission owner retains accountability for the whole mission unless an
+explicit transfer is recorded. Existing decision rights in §III.7 still apply:
+phase leadership cannot waive an Assurance block, grant merge authority, change
+strategy, or expand budget or human authority.
+
+**Record four fields in the mission packet:** lifecycle stage, named phase
+lead, exit evidence, and next owner. Exit evidence names the artifacts or
+observations and acceptance criteria needed for the next decision. At a
+handoff, link the actual evidence, record the receiving owner's acceptance and
+unresolved risks, and confirm that the next work has the required authority
+and allocation. An accepted handoff alone does not authorize that work.
+
+**Use the loop according to evidence.** A mission may enter at any stage, and
+customer evidence, feasibility findings, or incidents may return it to any
+earlier stage. Record the reason and receiving owner when changing stage.
+Iteration has a bounded question, allocation, and stop condition under Part II;
+it is not permission to keep polishing indefinitely. Incidents continue to use
+Part V's containment and escalation rules.
+
+**Keep lifecycle and funding explicit.** A lifecycle stage can contain multiple
+funded execution phases, such as implementation and verification within Build,
+or staging and pilot work supporting Launch. Record both in the mission packet.
+Changing either does not bypass Part II's budget gates or §III.11's production
+controls.
+
+**Scale the roles to the team.** One person may hold Product, Design, and
+Engineering responsibilities. In lightweight use, name that person as phase
+lead and next owner where appropriate; the four fields do not require extra
+agents, departments, or documents. Required independent assurance remains
+independent under §III.11.
+
 ---
 
 ## Part IV — Agent Evaluation
@@ -664,8 +740,14 @@ Assignment owner / accountable destination owner / Strategy Lead coordinator
 Assignment / required outcome / strategy connection / customer promise
 Scope / non-goals / start condition / end condition / capacity rationale
 
+## Product lifecycle and handoff
+Lifecycle stage (Discover / Define / Design / Build / Launch / Iterate)
+Named phase lead / exit evidence and acceptance criteria / next owner
+At handoff: evidence links / receiving owner's acceptance / unresolved risks
+
 ## Funded phase and decision gate
 Phase / decision unlocked / max $-tokens / max time / max agents
+Funded execution phase is distinct from lifecycle stage; a transition grants no new budget or authority.
 Circuit breakers (50/75/90/100) / reauthorization authority / next phase NOT authorized / manual-narrower alternative
 
 ## Complexity budget
