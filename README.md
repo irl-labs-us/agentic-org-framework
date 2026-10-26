@@ -42,6 +42,15 @@ Agent Governance Charter required for consequential or production use.
 
 ## How the parts fit together
 
+For product work, use **Discover → Define → Design → Build → Launch → Iterate**
+as the lifecycle overview. Product leads Discover and Define, Design leads
+Design, Engineering leads Build, and Product coordinates Launch with the
+designated release owner deciding go/no-go. Iteration leadership follows the
+problem, and evidence can return work to any earlier stage. Each mission names
+its stage, phase lead, exit evidence, and next owner. See `FRAMEWORK.md` §III.12
+for ownership and handoff rules. Lifecycle transitions do not grant additional
+budget or waive existing gates; one person may hold several roles.
+
 ```mermaid
 flowchart TB
     STRATEGY["Part I — Strategy<br/>CEO sets vision, diagnosis, guiding policy,<br/>human-in-command boundary"]

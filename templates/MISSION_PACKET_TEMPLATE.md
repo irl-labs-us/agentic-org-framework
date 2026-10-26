@@ -27,9 +27,23 @@ Copy this template for every new build or user-facing agent assignment. Register
 - **End condition:**
 - **Work displaced or capacity rationale:** What current work pauses, or why this fits existing capacity
 
+## Product lifecycle and handoff
+
+- **Lifecycle stage:** Discover / Define / Design / Build / Launch / Iterate
+- **Phase lead:** Named person or agent responsible for moving this phase forward within approved scope
+- **Exit evidence:** Required artifacts or observations and acceptance criteria for the next decision
+- **Next owner:** Named recipient responsible for accepting and using the phase result
+- **Handoff record, when reached:** Evidence links, receiving owner's acceptance, and unresolved risks
+
+Product leads Discover and Define; Design leads Design; Engineering leads Build.
+Product coordinates Launch with the designated release owner deciding go/no-go
+after required gates pass. Iteration leadership follows the problem. All
+functions contribute throughout; existing decision rights and independent
+review still apply. See `FRAMEWORK.md` §III.12.
+
 ## Funded phase and decision gate
 
-- **Funded phase:** Discovery / design / implementation / verification / staging / pilot / other
+- **Funded execution phase:** Discovery / definition / design / implementation / verification / staging / pilot / other
 - **Immediate customer or company decision unlocked:**
 - **Maximum dollar or token allocation:**
 - **Maximum elapsed time:**
@@ -39,6 +53,10 @@ Copy this template for every new build or user-facing agent assignment. Register
 - **Reauthorization authority:** Accountable owner + {Strategy & Portfolio Lead}; {CEO} for material increase or portfolio tradeoff
 - **Next phase explicitly not authorized:**
 - **Manual, disabled, or narrower alternative:**
+
+The funded execution phase is distinct from the lifecycle stage. One lifecycle
+stage may contain several allocations; advancing a stage or accepting a
+handoff does not authorize more spending or waive any gate.
 
 ## Complexity budget
 
