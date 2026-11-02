@@ -52,8 +52,9 @@ FORBIDDEN_EXACT = {
 # tracking issue that records lease grants — see docs/GIT_OPERATIONS_COVENANT.md).
 LIVE_LEDGER_URL = DEFAULT_LEDGER_URL
 
-# Legacy CLI compatibility. New scaffolds install this checker only in
-# multi-human operator mode and derive behavior from .agentic-org.json.
+# Legacy CLI compatibility. New scaffolds install this checker in small-team
+# and multi-human operator modes and derive behavior from .agentic-org.json;
+# only multi-human mode requires the lease section.
 SOLO_MODE = False
 
 
@@ -255,7 +256,13 @@ def validate_review_evidence(
         raise GovernanceError("actual high-risk scope requires Risk class: high")
     if high_risk and independence != "independent":
         raise GovernanceError("high-risk scope requires an independent reviewer declaration")
-    if high_risk and reviewer.casefold() == config.leadership.principal.casefold():
+    # In small-team mode the principal is one of several peer operators and may
+    # review a teammate's high-risk work; "not the author" is a manual control.
+    if (
+        high_risk
+        and not config.small_team_mode
+        and reviewer.casefold() == config.leadership.principal.casefold()
+    ):
         raise GovernanceError("high-risk reviewer must differ from the configured principal")
     if expiry_values and expiry_values[0].casefold() not in {"none", "n/a"}:
         expiry = _timestamp(expiry_values[0], "Decision expiry")
@@ -387,8 +394,9 @@ def _config_for(args: argparse.Namespace) -> FrameworkConfig:
 
 
 def _solo_mode(args: argparse.Namespace, config: FrameworkConfig) -> bool:
+    """Return True when the lease section is not required."""
     override = getattr(args, "solo_mode", None)
-    return (config.solo_mode or SOLO_MODE) if override is None else override
+    return (not config.lease_required or SOLO_MODE) if override is None else override
 
 
 def validate(args: argparse.Namespace) -> tuple[list[str], int, bool]:
@@ -534,12 +542,16 @@ def main() -> None:
     except (GovernanceError, FrameworkConfigError, OSError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
-    print("PASS: Git operations covenant checks passed" + (" (solo mode)" if solo else ""))
+    mode = " (small-team mode)" if config.small_team_mode else (" (solo mode)" if solo else "")
+    print("PASS: Git operations covenant checks passed" + mode)
     print(f"target: {normalized_branch(args.base_ref)} @ {args.base_sha}")
     print(f"head: {normalized_branch(args.head_ref)} @ {args.head_sha}")
     print(f"scope: {len(files)} files, {lines} changed lines")
     evidence = "independent specialist/evaluator evidence required" if high_risk else "standard evidence"
-    steward = "operator sign-off required" if solo else "Merge Steward decision required"
+    if config.small_team_mode:
+        steward = "merging operator decides; high risk needs a fresh agent or another operator's review"
+    else:
+        steward = "operator sign-off required" if solo else "Merge Steward decision required"
     print(f"risk: {'high' if high_risk else 'ordinary'}; {evidence}; {steward}")
     print("review: record shape and candidate binding validated; evidence truth remains a human decision")
 

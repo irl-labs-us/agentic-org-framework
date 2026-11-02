@@ -183,3 +183,59 @@ def test_non_approving_review_decision_blocks_validation(tmp_path, decision):
         governance.validate(args_for(repo, base_sha, head_sha, body))
     assert "intentional review gate, not a code or test failure" in str(exc.value)
     assert "Editing the PR body reruns this check" in str(exc.value)
+
+
+def test_small_team_config_drops_only_the_lease_requirement(tmp_path):
+    repo, base_sha, head_sha, body = governed_feature_repo(tmp_path)
+    raw = json.loads((SCRIPT_DIR.parent / ".agentic-org.example.json").read_text())
+    raw["git_governance"]["operator_mode"] = "small-team"
+    raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
+    raw["git_governance"]["operators_approver"] = "Operator A"
+    (repo / ".agentic-org.json").write_text(json.dumps(raw))
+    args = args_for(repo, base_sha, head_sha, body)
+    args.solo_mode = None
+
+    files, _, _ = governance.validate(args)
+    assert files == ["app.py"]
+
+    body.write_text(
+        body.read_text(encoding="utf-8").replace("`app.py`", "`different.py`"),
+        encoding="utf-8",
+    )
+    with pytest.raises(governance.GovernanceError, match="manifest mismatch"):
+        governance.validate(args)
+
+
+def _high_risk_review_by_principal(tmp_path, operator_mode):
+    repo, base_sha, head_sha, body = governed_feature_repo(tmp_path, "src/auth_policy.py")
+    raw = json.loads((SCRIPT_DIR.parent / ".agentic-org.example.json").read_text())
+    raw["leadership"]["principal"] = "Operator A"
+    raw["git_governance"]["operator_mode"] = operator_mode
+    if operator_mode == "small-team":
+        raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
+        raw["git_governance"]["operators_approver"] = "Operator A"
+    (repo / ".agentic-org.json").write_text(json.dumps(raw))
+    body.write_text(
+        body.read_text(encoding="utf-8").replace(
+            "- Reviewer: Independent Reviewer", "- Reviewer: Operator A"
+        ),
+        encoding="utf-8",
+    )
+    args = args_for(repo, base_sha, head_sha, body)
+    args.solo_mode = None if operator_mode == "small-team" else True
+    return args
+
+
+def test_small_team_principal_may_review_a_teammates_high_risk_work(tmp_path):
+    args = _high_risk_review_by_principal(tmp_path, "small-team")
+
+    _, _, high_risk = governance.validate(args)
+
+    assert high_risk is True
+
+
+def test_single_human_principal_still_cannot_review_high_risk_work(tmp_path):
+    args = _high_risk_review_by_principal(tmp_path, "single-human")
+
+    with pytest.raises(governance.GovernanceError, match="differ from the configured principal"):
+        governance.validate(args)

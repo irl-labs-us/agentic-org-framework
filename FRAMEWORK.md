@@ -278,12 +278,21 @@ Shared infrastructure, not a third organization or a decision-maker. Four parts:
 
 When repository work can overlap, "which branch is safe to build on" becomes a live decision, not a git detail. RoleWise learned this after unowned worktrees and stacked branches produced silent drift. The remedy must match the people who actually hold authority.
 
-**Choose repository operator mode independently from agent profile.** Agent profile describes the organization of work. Operator mode describes the number of humans who can authorize or perform integration. One human directing many agent sessions remains `single-human`; agents do not become independent grantors of human authority merely because they run concurrently.
+**Choose repository operator mode and agent sessions independently from agent profile.** Agent profile describes the organization of work. Operator mode describes the number of humans who can authorize or perform integration. Agent sessions describe how many agent sessions each of those humans runs at once. One human directing many agent sessions remains `single-human`; agents do not become independent grantors of human authority merely because they run concurrently.
 
 - **Single-human mode:** omit the lease ledger, Merge Steward delegation, governance-specific PR sections, hand-maintained changed-file manifests, and governance workflow. Keep a read-only local readiness check for exact target ancestry, branch identity, remote divergence, and worktree cleanliness. Use normal product CI, and obtain a fresh independent review for genuinely high-risk changes.
-- **Multi-human mode:** add a real Merge Steward role, live Git-work lease ledger, candidate-bound review record, exact changed-file manifest, and trusted-base CI because more than one human can hold write or merge authority.
+- **Small-team mode:** a short, named list of operators (two or more) who each direct agents and each may merge, including their own pull requests. Keep the trusted-base CI, exact changed-file manifest, authorized scope, and candidate-bound review record, because several people can now merge and CI is the fact they share. Drop the lease ledger and the single Merge Steward: the claim is an assigned ticket plus a draft pull request opened at the first commit, and a high-risk pull request needs a fresh agent review (a session with no memory of writing it) or another operator's review before its author merges it. Changes to the operator list need a named approver.
+- **Multi-human mode:** add a real Merge Steward role, live Git-work lease ledger, candidate-bound review record, exact changed-file manifest, and trusted-base CI because more than one human can hold write or merge authority and the team is too large, or the scopes too contested, to coordinate by conversation.
 
-The distinction prevents coordination machinery from turning into ceremony when there is nobody to coordinate with, while keeping the multi-human controls fail closed where authority can actually conflict.
+Agent sessions are a second, smaller dial. With `one` session per operator, a single-use branch from a freshly fetched base is enough. With `parallel` sessions, every session gets its own isolated worktree and single-use branch, checks open pull requests and worktrees for overlapping files before starting, and opens a draft pull request at the first commit so every concurrent session is visible. The single-writer rule (V.4) applies between one operator's own sessions exactly as it does between people.
+
+| | One agent session each | Parallel agent sessions each |
+|---|---|---|
+| **One operator** (`single-human`) | Local readiness, ordinary CI, fresh review for high risk | Adds a worktree per session, an overlap check, and draft-at-first-commit |
+| **A few named operators** (`small-team`) | Assigned ticket plus draft PR as the claim; governance CI without leases; independent review before a high-risk self-merge | All of that, plus a worktree per session; overlap checks cover your own sessions and your teammates' |
+| **Several operators with contested scope** (`multi-human`) | Merge Steward, lease ledger, governance CI | One lease and worktree per session |
+
+The distinction prevents coordination machinery from turning into ceremony when there is nobody to coordinate with, keeps a small team's shared controls in CI rather than in anyone's memory, and keeps the multi-human controls fail closed where authority can actually conflict. Move up a mode when the people change, not when the agent count does.
 
 - **Exactly one merge authority per target/scope.** Name a **Merge Steward** (a role, not necessarily always the same person) who is the only writer authorized to merge into any shared integration branch (`staging`, `main`, or your equivalents). Writers open pull requests; reviewers approve or block; neither may merge their own work. A delegation of merge authority must state its exact scope and an expiry — silence never implies delegation, and at most one steward is active per scope at a time.
 - **A shared integration branch is never a workspace.** Feature work happens on a single-use branch created fresh from the shared branch's current remote tip, in its own worktree. Once a branch merges, closes, or is abandoned, it is retired — never reused, never re-based into a stack. Before creating that branch, re-fetch the remote and resolve it to an exact SHA; a helper script that fails closed if the recorded base is no longer the tip (RoleWise's `create_feature_worktree.py`) turns "please remember to fetch first" into something CI enforces instead of hoping for.
@@ -668,7 +677,9 @@ risk gates, the control matrix, and production Agent Governance while using the
 short mission packet and omitting the full organizational communication packet.
 Move to `solo` when the fuller operating rhythm is useful, and to `multi` when
 another human or operator's agent can hold concurrent write authority. Profile
-choice never weakens high-risk review or production governance.
+choice never weakens high-risk review or production governance. Choose the
+operator mode (`single-human`, `small-team`, or `multi-human`) and agent
+sessions (`one` or `parallel`) separately, as described in III.8.
 
 1. **State the vision, diagnosis, guiding policy, and human-in-command boundary** (Part I). Get CEO sign-off in writing, versioned.
 2. **Stand up the two roles** — CEO and Strategy & Portfolio Lead — even if the same human holds both.

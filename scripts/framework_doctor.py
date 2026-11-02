@@ -15,6 +15,7 @@ from framework_config import FrameworkConfig, FrameworkConfigError, load_framewo
 
 PLACEHOLDERS = re.compile(
     r"\{Your Product\}|\{CEO\}|\{Strategy & Portfolio Lead\}|\{Assurance Owner\}|"
+    r"\{Operators\}|\{Operators Approver\}|\{Merge Authority\}|"
     r"<org>/<repo>|<lease-ledger-issue-number>|__[A-Z_]+__"
 )
 
@@ -42,11 +43,12 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
             }
         )
     if config.multi_human_mode:
+        paths.add("docs/coordination/GIT_WORK_REGISTRY.md")
+    if config.governed_mode:
         paths.update(
             {
                 ".github/workflows/git-governance.yml",
                 "docs/coordination/GIT_OPERATIONS_COVENANT.md",
-                "docs/coordination/GIT_WORK_REGISTRY.md",
                 "scripts/check_git_governance.py",
                 "scripts/create_feature_worktree.py",
                 "scripts/create_release_pr.py",
@@ -78,7 +80,7 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
 def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     notes = [
-        f"[checked] configuration: schema {config.schema_version}, agent profile {config.profile}, operator mode {config.git_governance.operator_mode}",
+        f"[checked] configuration: schema {config.schema_version}, agent profile {config.profile}, operator mode {config.git_governance.operator_mode}, agent sessions {config.git_governance.agent_sessions}",
         f"[checked] branches: {config.repository.integration_branch} -> {config.repository.release_branch}",
     ]
     expected = expected_paths(config)
@@ -135,7 +137,7 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
         ".github/workflows/release-pr-sync.yml",
         ".github/workflows/feature-pr-manifest-sync.yml",
     }
-    if not config.multi_human_mode:
+    if not config.governed_mode:
         for relative in sorted(optional_workflows):
             if (root / relative).exists():
                 errors.append(
@@ -152,12 +154,16 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
         "config-validation",
         "agent-governance",
     }
+    if config.governed_mode:
+        required_controls.update({"git-governance", "authorized-scope", "candidate-bound-review"})
     if config.multi_human_mode:
-        required_controls.update(
-            {"git-governance", "authorized-scope", "candidate-bound-review", "lease-ledger"}
-        )
+        required_controls.add("lease-ledger")
     else:
         required_controls.add("repository-readiness")
+    if config.small_team_mode:
+        required_controls.update({"operator-roster", "claim-and-draft", "self-merge-review"})
+    if config.parallel_sessions:
+        required_controls.add("parallel-sessions")
     for module in ("manifest_sync", "customer_feedback", "ai_output_discipline"):
         if getattr(config.modules, module):
             required_controls.add(module.replace("_", "-"))
@@ -217,11 +223,15 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
 def diagnose_github(config: FrameworkConfig) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     notes: list[str] = []
-    if not config.multi_human_mode:
+    if not config.governed_mode:
         notes.append(
             "[manual] single-human operator mode: no Git governance status check or lease ledger required"
         )
         return errors, notes
+    if config.small_team_mode:
+        notes.append(
+            "[manual] small-team operator mode: no lease ledger; the claim is the assigned ticket plus a draft PR"
+        )
     for branch in (config.repository.integration_branch, config.repository.release_branch):
         result = subprocess.run(
             ["gh", "api", f"repos/{config.repository.slug}/branches/{branch}/protection"],

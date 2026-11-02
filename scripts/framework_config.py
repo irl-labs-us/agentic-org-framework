@@ -11,7 +11,8 @@ from typing import Any, Mapping
 CONFIG_FILENAME = ".agentic-org.json"
 CONFIG_SCHEMA_VERSION = 1
 PROFILES = {"lightweight", "solo", "multi"}
-OPERATOR_MODES = {"single-human", "multi-human"}
+OPERATOR_MODES = {"single-human", "small-team", "multi-human"}
+AGENT_SESSIONS = {"one", "parallel"}
 DEFAULT_LEDGER_URL = "https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>"
 DEFAULT_HIGH_RISK_PATHS = (
     ".github/",
@@ -53,7 +54,10 @@ class LeadershipConfig:
 @dataclass(frozen=True)
 class GitGovernanceConfig:
     operator_mode: str
+    agent_sessions: str
     ledger_url: str | None
+    operators: tuple[str, ...]
+    operators_approver: str | None
     high_risk_paths: tuple[str, ...]
     forbidden_paths: tuple[str, ...]
 
@@ -82,8 +86,25 @@ class FrameworkConfig:
         return self.git_governance.operator_mode == "single-human"
 
     @property
+    def small_team_mode(self) -> bool:
+        return self.git_governance.operator_mode == "small-team"
+
+    @property
     def multi_human_mode(self) -> bool:
         return self.git_governance.operator_mode == "multi-human"
+
+    @property
+    def governed_mode(self) -> bool:
+        """More than one human may merge, so the trusted-base CI check applies."""
+        return self.git_governance.operator_mode in {"small-team", "multi-human"}
+
+    @property
+    def lease_required(self) -> bool:
+        return self.multi_human_mode
+
+    @property
+    def parallel_sessions(self) -> bool:
+        return self.git_governance.agent_sessions == "parallel"
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
@@ -111,7 +132,10 @@ def default_config() -> FrameworkConfig:
         ),
         git_governance=GitGovernanceConfig(
             operator_mode="multi-human",
+            agent_sessions="parallel",
             ledger_url=DEFAULT_LEDGER_URL,
+            operators=(),
+            operators_approver=None,
             high_risk_paths=DEFAULT_HIGH_RISK_PATHS,
             forbidden_paths=DEFAULT_FORBIDDEN_PATHS,
         ),
@@ -159,6 +183,15 @@ def _branch(value: Any, field: str) -> str:
     ):
         raise FrameworkConfigError(f"{field} is not a valid branch name")
     return branch
+
+
+def _names(value: Any, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise FrameworkConfigError(f"{field} must be an array of names")
+    result = tuple(_string(item, f"{field}[{index}]") for index, item in enumerate(value))
+    if len({name.casefold() for name in result}) != len(result):
+        raise FrameworkConfigError(f"{field} must not contain duplicates")
+    return result
 
 
 def _paths(value: Any, field: str) -> tuple[str, ...]:
@@ -223,7 +256,15 @@ def parse_framework_config(raw: Any, *, source_path: Path | None = None) -> Fram
     governance_raw = _object(root.get("git_governance"), "git_governance")
     _keys(
         governance_raw,
-        {"operator_mode", "ledger_url", "high_risk_paths", "forbidden_paths"},
+        {
+            "operator_mode",
+            "agent_sessions",
+            "ledger_url",
+            "operators",
+            "operators_approver",
+            "high_risk_paths",
+            "forbidden_paths",
+        },
         "git_governance",
     )
     operator_value = governance_raw.get("operator_mode")
@@ -249,11 +290,36 @@ def parse_framework_config(raw: Any, *, source_path: Path | None = None) -> Fram
             )
     elif ledger_url is not None:
         raise FrameworkConfigError(
-            "single-human operator mode must set git_governance.ledger_url to null"
+            f"{operator_mode} operator mode must set git_governance.ledger_url to null"
+        )
+    sessions_value = governance_raw.get("agent_sessions", "parallel")
+    agent_sessions = _string(sessions_value, "git_governance.agent_sessions")
+    if agent_sessions not in AGENT_SESSIONS:
+        raise FrameworkConfigError(
+            "git_governance.agent_sessions must be one of: "
+            + ", ".join(sorted(AGENT_SESSIONS))
+        )
+    operators: tuple[str, ...] = ()
+    operators_approver: str | None = None
+    if operator_mode == "small-team":
+        operators = _names(governance_raw.get("operators"), "git_governance.operators")
+        if len(operators) < 2:
+            raise FrameworkConfigError(
+                "small-team operator mode requires git_governance.operators to name two or more people"
+            )
+        operators_approver = _string(
+            governance_raw.get("operators_approver"), "git_governance.operators_approver"
+        )
+    elif "operators" in governance_raw or "operators_approver" in governance_raw:
+        raise FrameworkConfigError(
+            "git_governance.operators and operators_approver apply only to small-team operator mode"
         )
     governance = GitGovernanceConfig(
         operator_mode=operator_mode,
+        agent_sessions=agent_sessions,
         ledger_url=ledger_url,
+        operators=operators,
+        operators_approver=operators_approver,
         high_risk_paths=_paths(
             governance_raw.get("high_risk_paths", list(DEFAULT_HIGH_RISK_PATHS))
             if profile == "lightweight"

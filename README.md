@@ -16,7 +16,7 @@ Prefer to do it by hand instead? See "Manual setup" below.
 
 ### Mechanical installation
 
-The interview produces the decisions; `.agentic-org.json` makes those decisions executable. Copy `.agentic-org.example.json`, choose a `lightweight`, `solo`, or `multi` agent profile, choose `single-human` or `multi-human` repository operation, set repository and leadership values, and select optional modules. Then run:
+The interview produces the decisions; `.agentic-org.json` makes those decisions executable. Copy `.agentic-org.example.json`, choose a `lightweight`, `solo`, or `multi` agent profile, choose `single-human`, `small-team`, or `multi-human` repository operation and `one` or `parallel` agent sessions per operator, set repository and leadership values, and select optional modules. Then run:
 
 ```bash
 python3 scripts/scaffold_framework.py --target .          # dry run
@@ -37,8 +37,12 @@ scaffold never overwrites or claims ownership of them.
 path-list, and disabled-module fields; safe defaults fill them. `solo` and
 `multi` select the agent-organization depth. Repository coordination is a
 separate decision: `single-human` installs concise readiness and PR artifacts;
-`multi-human` adds the trusted-base governance workflow, lease ledger, manifest
-automation, and Merge Steward controls. Every combination retains the control
+`small-team` lets a named list of operators each merge, with the trusted-base
+governance workflow but no lease ledger or single Merge Steward; `multi-human`
+adds the lease ledger, manifest automation, and Merge Steward controls.
+`agent_sessions: parallel` adds a worktree per session, an overlap check, and
+draft pull requests at the first commit for anyone running several agents at
+once. Every combination retains the control
 matrix and Agent Governance Charter required for consequential or production use.
 
 ## How the parts fit together
@@ -57,7 +61,7 @@ flowchart TB
     STRATEGY["Part I — Strategy<br/>CEO sets vision, diagnosis, guiding policy,<br/>human-in-command boundary"]
     BUDGET["Part II — Budget & Portfolio<br/>Mission packets, circuit breakers,<br/>two-attempt rule, weekly review"]
     ORG["Part III — Organizational Structure<br/>Build org, customer-facing org,<br/>mission overlays, decision rights"]
-    GIT["Part III.8 — Git & Integration Discipline<br/>Single- or multi-human mode;<br/>local readiness for all,<br/>trusted-base governance for multi-human"]
+    GIT["Part III.8 — Git & Integration Discipline<br/>Single-human, small-team or multi-human mode;<br/>local readiness for all,<br/>trusted-base governance for teams"]
     FEEDBACK["Part III.9 — Customer Feedback & Happy Paths<br/>Normalized intake, happy-path registry,<br/>weekly review, release gates"]
     DESIGN["Part III.10 — AI-Generated Output Discipline<br/>Entropy seeding, critic loop,<br/>subtraction pass, human copy edit"]
     GOVERNANCE["Part III.11 — Agent Governance<br/>Policy, decision process, pre-launch gates,<br/>production monitoring and outcome audits"]
@@ -84,7 +88,7 @@ flowchart TB
 
 Solid arrows are the normal top-down flow of authority and work; dashed arrows are the feedback loop — Part VI exists because Parts I–V, followed correctly but without a "stop and check" mechanism, still produced an overrun in practice. Part VII in `FRAMEWORK.md` (Adoption Guide) walks the same path as a day-0 checklist.
 
-Part III.8 forks once at onboarding by the number of humans with integration authority. **Single-human** operation keeps local readiness and ordinary product CI, while omitting leases, registries, hand-maintained manifests, and governance-specific PR ceremony. **Multi-human** operation installs those coordination controls. Agent count does not select the mode: one human may direct a multi-agent organization. See §III.8 and `templates/GIT_OPERATIONS_COVENANT.md`.
+Part III.8 forks once at onboarding by the number of humans with integration authority. **Single-human** operation keeps local readiness and ordinary product CI, while omitting leases, registries, hand-maintained manifests, and governance-specific PR ceremony. **Small-team** operation lets a named list of operators each merge, with trusted-base governance CI but no lease ledger: the claim is an assigned ticket plus a draft PR, and a high-risk self-merge needs a fresh agent review or another operator's review. **Multi-human** operation adds the lease ledger and Merge Steward. Agent count does not select the mode; the separate `agent_sessions` setting (`one` or `parallel`) adds per-session worktree and overlap controls for anyone running several agents at once. See §III.8 and `templates/GIT_OPERATIONS_COVENANT.md`.
 
 ## What's in here
 
@@ -92,7 +96,7 @@ Part III.8 forks once at onboarding by the number of humans with integration aut
 |---|---|
 | `FRAMEWORK.md` | The framework itself: strategy, budget/circuit-breakers, org structure, git discipline, agent governance, evaluation, debugging/escalation, postmortem-derived guardrails, and condensed appendix templates. Read this first. |
 | `SETUP.md` | Agent-agnostic interview playbook — the fastest way to adopt this framework. See Quick start above. |
-| `.agentic-org.example.json` | Versioned example for the shared project configuration. Copy it to `.agentic-org.json`; `git_governance.operator_mode` is independent of `profile`. `multi-human` requires a numeric GitHub ledger issue URL; `single-human` requires `null`. |
+| `.agentic-org.example.json` | Versioned example for the shared project configuration. Copy it to `.agentic-org.json`; `git_governance.operator_mode` and `git_governance.agent_sessions` are independent of `profile`. `multi-human` requires a numeric GitHub ledger issue URL; `single-human` and `small-team` require `null`; `small-team` also requires `operators` and `operators_approver`. |
 | `scripts/scaffold_framework.py` | Dry-run-by-default, idempotent installer for configured docs, scripts, and workflows. It records generated-file hashes and refuses to overwrite human edits. |
 | `scripts/framework_doctor.py` | Checks configuration, required artifacts, unresolved placeholders, module/profile consistency, and generated-file drift. `--github` also checks required branch-protection status contexts. |
 | `templates/control-matrix.json` / generated `docs/CONTROL_MATRIX.md` | Versioned control inventory and profile/module-specific rendered matrix showing risk, owner, evidence, failure behavior, and enforcement status. Doctor checks applicable rows. |
@@ -101,7 +105,7 @@ Part III.8 forks once at onboarding by the number of humans with integration aut
 | `templates/GIT_OPERATIONS_COVENANT.md` | Multi-human git governance contract: merge authority, worktree leases, single-use branches, trusted-base enforcement, PR metadata, and the two-stage activation procedure. |
 | `templates/GIT_WORK_REGISTRY.md` | Blank audit-snapshot registry that mirrors the live lease ledger. Multi-human mode only. |
 | `templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md` | Generic org/communication-bus diagrams referenced by `FRAMEWORK.md` §III.6. |
-| `.github/pull_request_template.md` | Multi-human PR contract parsed by the governance check. Single-human scaffolds install a concise template from `templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md`. |
+| `.github/pull_request_template.md` | Multi-human PR contract parsed by the governance check. Single-human scaffolds install a concise template from `templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md`; small-team scaffolds install `templates/SMALL_TEAM_PULL_REQUEST_TEMPLATE.md`, the same contract without the lease section. |
 | `.github/workflows/git-governance.yml` | Multi-human trusted-base CI. It runs on `pull_request_target`, executes the checker and configuration from the exact base checkout, treats the candidate checkout only as data, and imports private-repository base history locally without persisting credentials. |
 | `scripts/create_feature_worktree.py` | Creates a single-use feature branch/worktree directly from a freshly-fetched exact base SHA; fails if that SHA is no longer the remote tip. |
 | `scripts/check_pr_readiness.py` | Read-only local preflight for branch identity, exact target ancestry, remote-branch divergence, and worktree cleanliness. |

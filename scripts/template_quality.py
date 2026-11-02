@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run source-level checks and a profile/operator-mode scaffold matrix."""
+"""Run source-level checks and a profile/operator-mode/agent-sessions scaffold matrix."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILES = ("lightweight", "solo", "multi")
-OPERATOR_MODES = ("single-human", "multi-human")
+OPERATOR_MODES = ("single-human", "small-team", "multi-human")
+AGENT_SESSIONS = ("one", "parallel")
 BRANCH_CASES = {
     "default": ("staging", "main", "origin"),
     "custom": ("develop", "production", "upstream"),
@@ -66,7 +67,9 @@ def check_local_markdown_links() -> None:
         raise QualityError("broken local Markdown link(s): " + ", ".join(failures))
 
 
-def matrix_config(profile: str, operator_mode: str, branch_case: str) -> dict:
+def matrix_config(
+    profile: str, operator_mode: str, branch_case: str, agent_sessions: str = "parallel"
+) -> dict:
     raw = json.loads((ROOT / ".agentic-org.example.json").read_text(encoding="utf-8"))
     integration, release, remote = BRANCH_CASES[branch_case]
     raw["profile"] = profile
@@ -83,12 +86,16 @@ def matrix_config(profile: str, operator_mode: str, branch_case: str) -> dict:
         "assurance_owner": "Quality Assurance",
     }
     raw["git_governance"]["operator_mode"] = operator_mode
+    raw["git_governance"]["agent_sessions"] = agent_sessions
     raw["git_governance"]["ledger_url"] = (
         "https://github.com/quality/framework-fixture/issues/1"
         if operator_mode == "multi-human"
         else None
     )
-    raw["modules"]["manifest_sync"] = operator_mode == "multi-human"
+    if operator_mode == "small-team":
+        raw["git_governance"]["operators"] = ["Quality Owner", "Quality Peer"]
+        raw["git_governance"]["operators_approver"] = "Quality Owner"
+    raw["modules"]["manifest_sync"] = operator_mode != "single-human"
     return raw
 
 
@@ -97,12 +104,16 @@ def check_scaffold_matrix() -> None:
         temp = Path(raw_temp)
         for profile in PROFILES:
             for operator_mode in OPERATOR_MODES:
-                for branch_case in BRANCH_CASES:
+                for index, branch_case in enumerate(BRANCH_CASES):
+                    agent_sessions = AGENT_SESSIONS[index % len(AGENT_SESSIONS)]
                     target = temp / f"{profile}-{operator_mode}-{branch_case}"
                     target.mkdir()
                     (target / ".agentic-org.json").write_text(
                         json.dumps(
-                            matrix_config(profile, operator_mode, branch_case), indent=2
+                            matrix_config(
+                                profile, operator_mode, branch_case, agent_sessions
+                            ),
+                            indent=2,
                         )
                         + "\n",
                         encoding="utf-8",

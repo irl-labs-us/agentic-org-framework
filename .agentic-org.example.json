@@ -15,6 +15,7 @@
   },
   "git_governance": {
     "operator_mode": "single-human",
+    "agent_sessions": "parallel",
     "ledger_url": null,
     "high_risk_paths": [
       ".github/",
