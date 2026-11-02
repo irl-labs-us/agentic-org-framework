@@ -138,26 +138,38 @@ def render_release_mechanical_sections(
     grant_url: str | None,
     solo_mode: bool,
     ledger_url: str = LIVE_LEDGER_URL,
+    small_team: bool = False,
 ) -> tuple[str, str, str, str]:
     """Render branch integration, lease content, manifest, and merge authority."""
 
     ceo_placeholder = "{CEO}"
     strategy_lead_placeholder = "{Strategy & Portfolio Lead}"
     if solo_mode:
+        mode_label = "small-team mode" if small_team else "solo-operator mode"
         branch_integration_lease = (
-            "- Git-work lease: N/A — solo-operator mode "
+            f"- Git-work lease: N/A — {mode_label} "
             "(see GIT_OPERATIONS_COVENANT.md)"
         )
         lease_content = ""
-        steward_line = "the operator"
-        risk_evidence = (
-            "High-risk production release; current-head CI, integration verification, specialist evidence "
-            "for included high-risk changes, and a deliberate operator second pass required"
-        )
-        deploy_authority = (
-            "The PR authorizes no merge by itself; only the operator merges, "
-            "after a deliberate second pass"
-        )
+        steward_line = "the merging operator" if small_team else "the operator"
+        if small_team:
+            risk_evidence = (
+                "High-risk production release; current-head CI, integration verification, specialist evidence "
+                "for included high-risk changes, and a fresh agent review or another operator's review required"
+            )
+            deploy_authority = (
+                "The PR authorizes no merge by itself; a configured operator merges only after "
+                "a fresh agent review or another operator's review"
+            )
+        else:
+            risk_evidence = (
+                "High-risk production release; current-head CI, integration verification, specialist evidence "
+                "for included high-risk changes, and a deliberate operator second pass required"
+            )
+            deploy_authority = (
+                "The PR authorizes no merge by itself; only the operator merges, "
+                "after a deliberate second pass"
+            )
     else:
         if lease_id is None or grant_url is None:
             raise ReleasePreparationError(
@@ -228,6 +240,7 @@ def render_release_body(
     evidence: str,
     solo_mode: bool = False,
     ledger_url: str = LIVE_LEDGER_URL,
+    small_team: bool = False,
     scope_reference: str = "release-owner approval",
     authorized_paths: tuple[str, ...] | None = None,
     reviewer: str = "Independent Reviewer",
@@ -253,6 +266,7 @@ def render_release_body(
             grant_url=grant_url,
             solo_mode=solo_mode,
             ledger_url=ledger_url,
+            small_team=small_team,
         )
     )
     lease_section = (
@@ -380,7 +394,8 @@ def infer_release_sync_solo_mode(body: str) -> bool:
     if "## git-work lease" in headings:
         return False
     branch_integration = body_section(body, "Branch integration")
-    if "solo-operator mode" in branch_integration.casefold():
+    lowered = branch_integration.casefold()
+    if "solo-operator mode" in lowered or "small-team mode" in lowered:
         return True
     raise ReleasePreparationError(
         "cannot infer release operator mode: expected a Git-work lease section "
@@ -397,6 +412,7 @@ def sync_release_pr_mechanical_sections(
     repo_slug: str,
     solo_mode: bool | None,
     ledger_url: str = LIVE_LEDGER_URL,
+    small_team: bool = False,
 ) -> str | None:
     """
     Refresh only the mechanically-derived sections (Branch integration,
@@ -445,6 +461,7 @@ def sync_release_pr_mechanical_sections(
             grant_url=grant_url,
             solo_mode=effective_solo,
             ledger_url=ledger_url,
+            small_team=small_team or "small-team mode" in old_body.casefold(),
         )
         new_body = replace_body_section(old_body, "Branch integration", branch_integration)
         new_body = replace_body_section(new_body, "Changed-file manifest", manifest)
@@ -723,7 +740,7 @@ def main() -> None:
         remote = args.remote or config.repository.remote
         base_branch = args.base or config.repository.release_branch
         head_branch = args.head or config.repository.integration_branch
-        solo_mode = config.solo_mode if args.solo_mode is None else args.solo_mode
+        solo_mode = (not config.lease_required) if args.solo_mode is None else args.solo_mode
         ledger_url = config.git_governance.ledger_url or LIVE_LEDGER_URL
         if not solo_mode and not args.sync_mechanical and (
             not args.lease_id or not args.grant_url
@@ -754,6 +771,7 @@ def main() -> None:
                 repo_slug=repo_slug,
                 solo_mode=args.solo_mode,
                 ledger_url=ledger_url,
+                small_team=config.small_team_mode,
             )
             print(result if result else "no open release PR to refresh; nothing to do")
             return
@@ -765,6 +783,7 @@ def main() -> None:
             evidence=args.evidence,
             solo_mode=solo_mode,
             ledger_url=ledger_url,
+            small_team=config.small_team_mode,
             scope_reference=args.scope_reference,
             authorized_paths=tuple(args.authorized_path),
             reviewer=args.reviewer,

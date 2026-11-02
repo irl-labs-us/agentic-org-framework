@@ -155,6 +155,22 @@ def test_solo_release_body_has_no_lease_section():
     assert "## Risk and review evidence" in body
 
 
+def test_small_team_release_body_names_the_mode_and_review():
+    body = release.render_release_body(
+        context(),
+        lease_id=None,
+        grant_url=None,
+        evidence="Tests passed.",
+        solo_mode=True,
+        small_team=True,
+    )
+
+    assert "## Git-work lease" not in body
+    assert "Git-work lease: N/A — small-team mode" in body
+    assert "another operator's review" in body
+    assert release.infer_release_sync_solo_mode(body) is True
+
+
 @pytest.mark.parametrize(
     "body, expected",
     [

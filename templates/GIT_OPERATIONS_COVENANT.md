@@ -2,24 +2,52 @@
 
 **Status:** Approved operating control
 **Effective:** 2026-08-27
-**Owner:** Merge Steward for integration; {Strategy & Portfolio Lead} for policy and registry maintenance
+**Owner:** Merge Steward for integration (in small-team mode, the operators named below); {Strategy & Portfolio Lead} for policy and registry maintenance
 **Applies to:** Every repository writer, reviewer, custodian, and agent
 
 ## Purpose
 
 Git is an integration boundary, not a transport shortcut. A task pass, QA pass, clean local test run, or completed handoff does not authorize a merge. This covenant keeps the reviewed, tested, merged, and deployed commits traceable and prevents branches or worktrees from becoming unowned continuing workspaces.
 
-## Single-human operator mode
+## Operator modes and agent sessions
 
-Everything below describes **multi-human operator mode**: a repository where more than one person can hold write or integration authority. Agent count does not determine this mode; one human directing many agent sessions is still single-human operation.
+Two settings in `.agentic-org.json` decide how much of this covenant applies. They are independent of each other and of the agent `profile`.
 
-If this repo has exactly one human operator directing agent sessions, set `git_governance.operator_mode` to `single-human`. The scaffold omits this covenant, the ledger, governance-specific PR sections, hand-maintained manifests, and coordination workflows. It retains local branch/readiness checks, ordinary product CI, and an explicit high-risk review field in the concise PR template. Keep the agent `profile` independent; a multi-agent organization may still use single-human Git operation.
+`git_governance.operator_mode` counts the **humans who can merge**:
 
-If a second human operator joins later, switch `git_governance.operator_mode` to `multi-human` rather than running a hybrid.
+| Mode | Who merges | Claim before work | Lease ledger | Governance CI | High-risk safeguard |
+|---|---|---|---|---|---|
+| `single-human` | The one operator | None | No | No; local readiness only | Fresh independent review |
+| `small-team` | Any named operator, own PRs included | Assigned ticket plus draft PR at the first commit | No | Yes, without the lease section | Fresh agent review or another operator's review before a self-merge |
+| `multi-human` | Only the Merge Steward on duty | Granted lease | Yes | Yes | Independent specialist evidence plus the steward's decision |
+
+`git_governance.agent_sessions` counts the **agent sessions each operator runs at once**:
+
+- `one`: a single session per operator. It still uses a single-use branch from a freshly fetched base; a separate worktree is recommended but not required.
+- `parallel`: several sessions per operator. Every session gets its own isolated worktree and single-use branch, checks open pull requests and worktrees for overlapping files before starting, and opens a draft pull request at the first commit so the other sessions, and the other operators, can see it.
+
+That gives six combinations, for example one person with one agent (`single-human` + `one`), one person running several agents (`single-human` + `parallel`), a small team where each person runs one agent (`small-team` + `one`), or a small team where each person runs several (`small-team` + `parallel`). Agents never become operators: however many sessions run, only the humans named for the mode merge, mark a pull request ready, or close the work.
+
+In `single-human` mode the scaffold omits this covenant, the ledger, governance-specific PR sections, hand-maintained manifests, and coordination workflows. It keeps local branch/readiness checks, ordinary product CI, and an explicit high-risk review field in the concise PR template.
+
+### Small-team mode
+
+*(Applies when `git_governance.operator_mode` is `small-team`.)*
+
+A few named operators each direct agent sessions and each may merge. There is no lease ledger and no single Merge Steward.
+
+- **Who merges.** The operators are {Operators}. Each may merge their own pull requests and each other's into `staging`, and each may create and merge a `staging` → `main` release. Changing the list takes a dated decision approved by {Operators Approver} and an edit to `git_governance.operators`, followed by a scaffold rerun.
+- **Claim, then draft.** Before starting, assign yourself the tracking issue or ticket and move it to in progress. That is the claim. Check open pull requests and worktrees; if one touches the same files, agree an order with its owner first. Open the pull request as a **draft** at the first commit, and mark it ready only when its evidence is complete. The governance check defers enforcement while a pull request is a draft.
+- **High-risk safeguard.** A high-risk pull request (Integration queue item 5, more than 20 files or 1,000 changed lines, shared code used by more than one part of the product, or a release) gets a fresh agent review, meaning a session with no memory of writing it that is given the diff and the ticket, or a review by another operator, before its author merges it. Any operator other than the author, or a fresh agent session, may be the reviewer; CI cannot see who wrote the pull request, so "not the author" is on the operators. Record the reviewer and evidence under `## Risk and review evidence` with `Reviewer independence: independent`. An ordinary pull request may be self-merged once CI is green and the readiness check passes.
+- **Dropped:** the live Git-work lease ledger, `LEASE REQUEST`/`LEASE GRANTED` comments, Merge Steward delegation, the integration queue's two-ready limit, and the `## Git-work lease` PR section. Skip the Authority and Worktree lease sections below.
+- **Kept:** single-use branches from a freshly fetched exact base SHA, the exact changed-file manifest, authorized scope, the candidate-bound review record, the ban on merge commits and stacked PRs, PR bodies from the template, `scripts/check_pr_readiness.py` before every push, the release path's merge-base scoping, and the trusted-base governance check. Parallel branches drifting from the base is more likely with several operators each running agents, not less.
+- **Read "Merge Steward" below as "the operator merging this pull request."** The merge-steward checklist still applies to whoever merges, without the ledger entries.
+
+Move to `multi-human` when the team grows past what a short named list can coordinate by conversation, or when two operators need write ownership of the same scope enforced. A ledger whose grants are only sometimes enforced is worse than either mode applied cleanly.
 
 ## Authority
 
-*(Multi-human operator mode.)*
+*(Multi-human operator mode only; small-team mode skips this section.)*
 
 - The **Merge Steward on duty** is the only person or agent authorized to merge into `staging` or `main`.
 - {CEO} is the interim Merge Steward. A delegate has authority only when the delegation, exact non-overlapping target/scope, start, and expiry are granted in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>).
@@ -52,7 +80,7 @@ If a second human operator joins later, switch `git_governance.operator_mode` to
 
 ## Worktree lease
 
-*(Multi-human operator mode only.)*
+*(Multi-human operator mode only. In small-team mode the assigned ticket plus the draft pull request is the claim; record the worktree path and exact base SHA in the pull request instead.)*
 
 Before substantive repository work, the mission must have a granted lease in the [live Git-work control ledger](https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>). A writer posts a `LEASE REQUEST` comment and {Strategy & Portfolio Lead} or the Merge Steward grants it in a separate `LEASE GRANTED` comment. Only the grant creates authority; a feature-branch edit to `GIT_WORK_REGISTRY.md` does not. The grant contains:
 
@@ -74,10 +102,10 @@ At expiry, merge, closure, or abandonment, the owner records a read-only closeou
 Before creating a feature branch or its worktree:
 
 1. Fetch and prune the intended remote's `staging` branch.
-2. Resolve the fetched remote-tracking ref to a full SHA and record that exact SHA in the lease request and grant.
+2. Resolve the fetched remote-tracking ref to a full SHA and record that exact SHA in the lease request and grant (small-team mode: in the draft pull request).
 3. Run `python3 scripts/create_feature_worktree.py --branch <single-use-branch> --worktree <isolated-path> --recorded-base <full-sha>` from a governed repository checkout. The helper fetches again, fails if the recorded SHA is no longer the remote `staging` tip, rejects existing branch/worktree identities, and creates the branch directly from the fetched remote-tracking ref.
 4. Never create a feature branch from local `staging`, another feature branch, or a stale checkout. Do not use `git pull` on the shared checkout as a substitute for fetching the remote target.
-5. If `staging` advances after the grant but before creation, stop and obtain a superseding grant for the new exact base before retrying.
+5. If `staging` advances after the grant but before creation, stop and obtain a superseding grant for the new exact base before retrying (small-team mode: record the new base and retry).
 
 Before editing:
 
@@ -93,7 +121,7 @@ Before opening or updating a pull request:
 2. Build the pull-request body from `.github/pull_request_template.md`; retain and complete the machine-readable metadata contract below. Before publishing, re-run `scripts/check_pr_readiness.py` with `--body-file <path-to-drafted-body>` (and `--solo-mode` if this project has adopted it) — this validates the body locally the exact way `check_git_governance.py` will in CI (required headings present, every Changed-file manifest line well-formed, declared manifest matching the real diff). A real incident this caught after the fact: a manifest bullet with a trailing parenthetical after the closing backtick (e.g. `` - `path` (added for X) ``) looks correct on a skim, but fails `check_git_governance.py`'s exact-match parser silently — the whole line is dropped rather than partially matched, so the path is reported as "missing from manifest" even though it's visibly present in the body. Catch this locally before pushing, not as a confusing CI failure afterward.
 3. Run the required tests and name limitations.
 4. Confirm the branch is single-use and has no prior pull request.
-5. Record the lease ID and live-ledger link in the pull request, then post the `in_review` queue transition to the ledger. Only the Merge Steward may post `ready_for_merge`, `merging`, or `merged`.
+5. Record the lease ID and live-ledger link in the pull request, then post the `in_review` queue transition to the ledger. Only the Merge Steward may post `ready_for_merge`, `merging`, or `merged`. In small-team mode there is no ledger: open the pull request as a draft at the first commit, and the operator directing the work marks it ready.
 
 ### Machine-readable pull-request metadata contract
 
@@ -101,7 +129,7 @@ The Git governance check parses the PR body by exact Markdown section name. Auth
 
 - `## Outcome`
 - `## Coordination and scope`
-- `## Git-work lease`
+- `## Git-work lease` (multi-human mode only)
 - `## Changed-file manifest`
 - `## Authorized scope`
 - `## Risk and review evidence`
@@ -125,7 +153,7 @@ CI validates that the pull request names a correctly formatted lease ID and link
 
 ### Release pull-request contract
 
-Every `staging` → `main` or `master` release is high risk and requires its own live-ledger release lease. The release owner must use `scripts/create_release_pr.py` to create or repair the PR. The helper:
+Every `staging` → `main` or `master` release is high risk and requires its own live-ledger release lease (small-team mode: no lease; a fresh agent review or another operator's review instead). The release owner must use `scripts/create_release_pr.py` to create or repair the PR. The helper:
 
 1. fetches and prunes the persistent target and `staging` refs;
 2. verifies the exact release path and a common merge base;
@@ -150,7 +178,7 @@ For every merge, the steward records:
 - staging deployment or release evidence; and
 - branch/worktree closeout owner and due date.
 
-Immediately before a feature merge, the steward fetches the target remote again, verifies that its current tip exactly equals the PR's recorded base SHA, reruns `scripts/check_pr_readiness.py` against that fetched ref, and records the observed target SHA and timestamp in the live ledger. Immediately before a release merge, the steward reruns `scripts/create_release_pr.py --dry-run` with the recorded release lease, verifies that current `main` and `staging` exactly match the PR base/head, confirms GitHub still reports the PR mergeable, and records both SHAs and the timestamp. A prior green workflow is not freshness evidence after either ref advances. If the applicable target or release head changed, all head-bound evidence becomes stale and the PR body/checks must be refreshed before merge.
+Immediately before a feature merge, the steward fetches the target remote again, verifies that its current tip exactly equals the PR's recorded base SHA, reruns `scripts/check_pr_readiness.py` against that fetched ref, and records the observed target SHA and timestamp in the live ledger (small-team mode: in the pull request). Immediately before a release merge, the steward reruns `scripts/create_release_pr.py --dry-run` with the recorded release lease, verifies that current `main` and `staging` exactly match the PR base/head, confirms GitHub still reports the PR mergeable, and records both SHAs and the timestamp. A prior green workflow is not freshness evidence after either ref advances. If the applicable target or release head changed, all head-bound evidence becomes stale and the PR body/checks must be refreshed before merge.
 
 The steward stops the merge when any identity, ancestry, scope, approval, test, risk, or custody evidence is missing or contradictory. The correct disposition is `needs_coordination`, not an improvised history repair.
 

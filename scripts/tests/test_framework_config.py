@@ -108,3 +108,76 @@ def test_lightweight_profile_accepts_reduced_configuration():
     assert config.modules.manifest_sync is False
     assert config.git_governance.high_risk_paths
     assert config.git_governance.forbidden_paths
+
+
+def small_team() -> dict:
+    raw = example()
+    raw["git_governance"]["operator_mode"] = "small-team"
+    raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
+    raw["git_governance"]["operators_approver"] = "Operator A"
+    return raw
+
+
+def test_small_team_mode_drops_lease_but_stays_governed():
+    config = parse_framework_config(small_team())
+
+    assert config.small_team_mode is True
+    assert config.governed_mode is True
+    assert config.lease_required is False
+    assert config.solo_mode is False
+    assert config.git_governance.operators == ("Operator A", "Operator B")
+    assert config.git_governance.operators_approver == "Operator A"
+
+
+@pytest.mark.parametrize(
+    "operators, message",
+    [
+        (None, "operators must be an array"),
+        (["Only One"], "two or more people"),
+        (["Same", "same"], "must not contain duplicates"),
+    ],
+)
+def test_small_team_mode_requires_a_real_roster(operators, message):
+    raw = small_team()
+    raw["git_governance"]["operators"] = operators
+
+    with pytest.raises(FrameworkConfigError, match=message):
+        parse_framework_config(raw)
+
+
+def test_small_team_mode_requires_roster_approver_and_null_ledger():
+    raw = small_team()
+    del raw["git_governance"]["operators_approver"]
+    with pytest.raises(FrameworkConfigError, match="operators_approver"):
+        parse_framework_config(raw)
+
+    raw = small_team()
+    raw["git_governance"]["ledger_url"] = "https://github.com/acme/product/issues/17"
+    with pytest.raises(FrameworkConfigError, match="small-team operator mode must set"):
+        parse_framework_config(raw)
+
+
+def test_operator_roster_is_rejected_outside_small_team_mode():
+    raw = example()
+    raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
+
+    with pytest.raises(FrameworkConfigError, match="apply only to small-team"):
+        parse_framework_config(raw)
+
+
+@pytest.mark.parametrize("sessions", ["one", "parallel"])
+def test_agent_sessions_is_independent_of_operator_mode(sessions):
+    for raw in (example(), small_team()):
+        raw["git_governance"]["agent_sessions"] = sessions
+        config = parse_framework_config(raw)
+        assert config.parallel_sessions is (sessions == "parallel")
+
+
+def test_agent_sessions_defaults_to_parallel_and_rejects_unknown_values():
+    raw = example()
+    del raw["git_governance"]["agent_sessions"]
+    assert parse_framework_config(raw).git_governance.agent_sessions == "parallel"
+
+    raw["git_governance"]["agent_sessions"] = "many"
+    with pytest.raises(FrameworkConfigError, match="agent_sessions must be one of"):
+        parse_framework_config(raw)

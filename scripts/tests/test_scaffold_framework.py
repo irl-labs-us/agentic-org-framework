@@ -29,6 +29,7 @@ def write_config(
     profile: str = "solo",
     operator_mode: str = "single-human",
     manifest_sync: bool = False,
+    agent_sessions: str = "parallel",
 ) -> None:
     raw = json.loads((SOURCE / ".agentic-org.example.json").read_text())
     raw["profile"] = profile
@@ -39,7 +40,11 @@ def write_config(
         "release_branch": "production",
     }
     raw["git_governance"]["operator_mode"] = operator_mode
+    raw["git_governance"]["agent_sessions"] = agent_sessions
     raw["modules"]["manifest_sync"] = manifest_sync
+    if operator_mode == "small-team":
+        raw["git_governance"]["operators"] = ["Ada Example", "Grace Example", "Alan Example"]
+        raw["git_governance"]["operators_approver"] = "Ada Example"
     if operator_mode == "multi-human":
         raw["git_governance"]["ledger_url"] = "https://github.com/acme/widget/issues/42"
     else:
@@ -255,3 +260,59 @@ def test_doctor_reports_missing_configured_remote_branch(tmp_path: Path) -> None
 
     assert any("upstream/develop" in error for error in errors)
     assert any("upstream/production" in error for error in errors)
+
+
+@pytest.mark.parametrize("profile", ["lightweight", "solo", "multi"])
+def test_small_team_mode_installs_governance_without_lease(tmp_path: Path, profile: str) -> None:
+    write_config(tmp_path, profile=profile, operator_mode="small-team")
+    files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
+
+    pull_request_template = files[".github/pull_request_template.md"].decode()
+    covenant = files["docs/coordination/GIT_OPERATIONS_COVENANT.md"].decode()
+    startup = files["docs/coordination/AGENT_STARTUP.md"].decode()
+    assert ".github/workflows/git-governance.yml" in files
+    assert "scripts/check_git_governance.py" in files
+    assert "docs/coordination/GIT_WORK_REGISTRY.md" not in files
+    assert "\n## Git-work lease\n" not in pull_request_template
+    assert "\n## Changed-file manifest\n" in pull_request_template
+    assert "draft at the first commit" in pull_request_template
+    assert "upstream/develop" in pull_request_template
+    assert "The operators are Ada Example, Grace Example and Alan Example." in covenant
+    assert "approved by Ada Example" in covenant
+    assert "Operator mode `small-team`" in startup
+    assert "GIT_OPERATIONS_COVENANT.md" in startup
+    assert "GIT_WORK_REGISTRY.md" not in startup
+
+
+def test_small_team_mode_passes_doctor(tmp_path: Path) -> None:
+    write_config(tmp_path, operator_mode="small-team", manifest_sync=True)
+    install(tmp_path)
+    config = load_framework_config(repo=tmp_path, required=True)
+
+    errors, _ = diagnose(tmp_path, config)
+
+    assert [error for error in errors if "remote" not in error] == []
+    matrix = (tmp_path / "docs/CONTROL_MATRIX.md").read_text()
+    for control in ("git-governance", "operator-roster", "claim-and-draft", "self-merge-review"):
+        assert f"| {control} |" in matrix
+    assert "| lease-ledger |" not in matrix
+
+
+@pytest.mark.parametrize(
+    "agent_sessions, present, absent",
+    [
+        ("parallel", "Agent sessions `parallel`", "Agent sessions `one`"),
+        ("one", "Agent sessions `one`", "Agent sessions `parallel`"),
+    ],
+)
+def test_agent_sessions_shape_startup_and_matrix(
+    tmp_path: Path, agent_sessions: str, present: str, absent: str
+) -> None:
+    write_config(tmp_path, agent_sessions=agent_sessions)
+    files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
+
+    startup = files["docs/coordination/AGENT_STARTUP.md"].decode()
+    matrix = files["docs/CONTROL_MATRIX.md"].decode()
+    assert present in startup
+    assert absent not in startup
+    assert ("| parallel-sessions |" in matrix) is (agent_sessions == "parallel")

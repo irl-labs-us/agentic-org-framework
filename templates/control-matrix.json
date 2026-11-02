@@ -13,7 +13,10 @@
     },
     {
       "id": "repository-readiness",
-      "module": "single-human",
+      "module": [
+        "single-human",
+        "small-team"
+      ],
       "control": "Fresh-target ancestry and clean-worktree readiness",
       "risk": "Publishing stale, divergent, or unrelated work",
       "owner": "Operator and local automation",
@@ -23,17 +26,23 @@
     },
     {
       "id": "git-governance",
-      "module": "multi-human",
+      "module": [
+        "small-team",
+        "multi-human"
+      ],
       "control": "Trusted-base Git operations covenant",
       "risk": "Stale, stacked, reused, or unauthorized integration",
-      "owner": "CI and Merge Steward",
-      "evidence": "Git operations covenant check and final steward decision",
+      "owner": "CI and the merging operator or Merge Steward",
+      "evidence": "Git operations covenant check and final merge decision",
       "failure": "Protected branch merge is blocked",
       "status": "enforced when branch protection is configured"
     },
     {
       "id": "authorized-scope",
-      "module": "multi-human",
+      "module": [
+        "small-team",
+        "multi-human"
+      ],
       "control": "Changed files remain inside approved scope",
       "risk": "Undeclared scope expansion",
       "owner": "CI and accountable owner",
@@ -43,7 +52,10 @@
     },
     {
       "id": "candidate-bound-review",
-      "module": "multi-human",
+      "module": [
+        "small-team",
+        "multi-human"
+      ],
       "control": "Structured review bound to current head",
       "risk": "Stale or incomplete approval evidence",
       "owner": "CI and named reviewer",
@@ -70,6 +82,46 @@
       "evidence": "Configured ledger issue and PR lease section",
       "failure": "Governance validation fails",
       "status": "record enforced; live match manual"
+    },
+    {
+      "id": "operator-roster",
+      "module": "small-team",
+      "control": "Named operator roster with an approver for changes",
+      "risk": "Unclear who may merge once several people direct agents",
+      "owner": "Operators approver",
+      "evidence": ".agentic-org.json git_governance.operators and the generated covenant",
+      "failure": "Configuration fails closed with fewer than two operators or no approver",
+      "status": "checked; roster changes approved manually"
+    },
+    {
+      "id": "claim-and-draft",
+      "module": "small-team",
+      "control": "Assigned ticket plus draft PR at the first commit",
+      "risk": "Two operators or sessions building the same scope unseen",
+      "owner": "Operator directing the work",
+      "evidence": "Assigned tracking issue and draft pull request",
+      "failure": "Overlapping work is reordered before it continues",
+      "status": "manual; draft governance deferred by CI"
+    },
+    {
+      "id": "self-merge-review",
+      "module": "small-team",
+      "control": "Independent review before a high-risk self-merge",
+      "risk": "An operator merging their own high-risk change unreviewed",
+      "owner": "Merging operator",
+      "evidence": "Risk and review evidence naming a fresh agent session or another operator",
+      "failure": "Governance validation fails without an independent high-risk record",
+      "status": "record enforced; review quality manual"
+    },
+    {
+      "id": "parallel-sessions",
+      "module": "parallel-sessions",
+      "control": "One isolated worktree and single-use branch per agent session",
+      "risk": "Concurrent sessions overwriting or absorbing each other's changes",
+      "owner": "Operator directing the sessions",
+      "evidence": "Worktree list, open draft PRs, and the readiness check's clean-worktree result",
+      "failure": "Readiness fails on a dirty or shared worktree; overlap is reordered",
+      "status": "checked locally; overlap decision manual"
     },
     {
       "id": "manifest-sync",

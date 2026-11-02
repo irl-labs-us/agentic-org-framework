@@ -99,8 +99,13 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
 
 1. **Confirm the repo.** Ask for `<org>/<repo>` (the actual GitHub owner/repo this project will live in) and the integration branch names if they differ from `staging`/`main`.
 2. **Confirm names.** You already have CEO, Strategy & Portfolio Lead, and Merge Steward from Section 2, and the product name from Section 0.
-3. **Choose two independent settings.** First choose the agent-organization `profile` (`lightweight`, `solo`, or `multi`) based on mission and role complexity. Then ask how many humans can authorize or perform integration. Use `git_governance.operator_mode: single-human` for one human directing any number of agent sessions; use `multi-human` when two or more humans may hold write or merge authority.
+3. **Choose three independent settings.** First choose the agent-organization `profile` (`lightweight`, `solo`, or `multi`) based on mission and role complexity. Then ask how many humans can authorize or perform integration, and how many agent sessions each of them runs at once (`FRAMEWORK.md` III.8 has the table):
+   - `git_governance.operator_mode: single-human` for one human directing any number of agent sessions.
+   - `small-team` for a short, named list of two or more people who each direct agents and each may merge. Ask for the names and for the person who approves changes to that list.
+   - `multi-human` when the team is larger, or two people need enforced write ownership of the same scope.
+   - `git_governance.agent_sessions: one` if each operator runs one agent session at a time; `parallel` if anyone runs several at once. When unsure, choose `parallel`; it only adds controls.
    - **If multi-human:** continue with the ledger and activation steps below.
+   - **If small-team:** use `ledger_url: null`, set `operators` and `operators_approver`, skip the ledger step, and do the activation step. Ask which tracker holds the tickets operators assign themselves to claim work (GitHub issues, Jira, Linear, or similar) and note it in the covenant's Small-team mode section.
    - **If single-human:** use `ledger_url: null`, set `modules.manifest_sync` to `false`, and skip the ledger and governance-workflow setup.
 4. **Create the live Git-work lease ledger** (multi-human only). This is a single pinned GitHub issue that acts as the source of truth for who holds which worktree/branch. Tell the user to create it now — give them this to paste in:
 
@@ -113,17 +118,20 @@ This is the part with real mechanical setup, not just Q&A. Walk through it in or
    ```
 
    Ask the user to pin it and report back the issue number.
-5. **Write `.agentic-org.json`.** Copy `.agentic-org.example.json` and fill in the selected profile, operator mode, product, repository slug, remote, branch names, leadership, path policy, and modules. `multi-human` requires the full numeric ledger issue URL; `single-human` requires `null`. Lightweight may omit `strategy_lead`, `assurance_owner`, path lists, and false optional-module fields; safe defaults apply. Enable `customer_feedback` and `ai_output_discipline` when the interview establishes a need. `manifest_sync` is available only in multi-human mode. `agent_governance` stays enabled.
+5. **Write `.agentic-org.json`.** Copy `.agentic-org.example.json` and fill in the selected profile, operator mode, product, repository slug, remote, branch names, leadership, path policy, and modules. `multi-human` requires the full numeric ledger issue URL; `single-human` and `small-team` require `null`. `small-team` also requires `operators` (two or more names) and `operators_approver`; the other modes reject them. Lightweight may omit `strategy_lead`, `assurance_owner`, path lists, and false optional-module fields; safe defaults apply. Enable `customer_feedback` and `ai_output_discipline` when the interview establishes a need. `manifest_sync` is available only in multi-human mode. `agent_governance` stays enabled.
 6. **Run the scaffold.** Run `python3 scripts/scaffold_framework.py --target .` and review its dry-run output with the user. Then run it with `--apply`. It renders placeholders and branch names, installs profile/module-specific artifacts, generates concise `AGENTS.md` links, and records ownership in `.agentic-org.generated.json`. It refuses to overwrite a customized `AGENTS.md` or any other human-edited generated file. In an existing repository, review each conflict against the generated source and pass `--preserve-existing PATH` only when the existing file remains authoritative and satisfies the same control. Add the startup link to a preserved `AGENTS.md` or `CLAUDE.md` yourself. Preserved paths remain human-owned and doctor reports them as manual controls.
-7. **Activate multi-human enforcement in two stages.** The governance workflow cannot securely bootstrap itself from candidate code. First land the workflow, checker, configuration, and covenant under the repository's existing protections without requiring its status. Then open a deliberate pass/fail test PR, verify the base-controlled `pull_request_target` check, and only then make `Git operations covenant` required. Read the activation section in the generated covenant. Single-human mode skips this step.
-8. **Validate the installation.** Run `python3 scripts/framework_doctor.py --repo .`. Fix every reported missing artifact, unresolved placeholder, module mismatch, or generated-file drift. In multi-human mode, run it again with `--github` after activation to verify both protected branches require the governance check. If manifest staleness is likely, enable `modules.manifest_sync` and rerun the scaffold.
+7. **Activate governance enforcement in two stages (small-team and multi-human).** The governance workflow cannot securely bootstrap itself from candidate code. First land the workflow, checker, configuration, and covenant under the repository's existing protections without requiring its status. Then open a deliberate pass/fail test PR, verify the base-controlled `pull_request_target` check, and only then make `Git operations covenant` required. Read the activation section in the generated covenant. Single-human mode skips this step.
+8. **Validate the installation.** Run `python3 scripts/framework_doctor.py --repo .`. Fix every reported missing artifact, unresolved placeholder, module mismatch, or generated-file drift. In small-team and multi-human mode, run it again with `--github` after activation to verify both protected branches require the governance check. If manifest staleness is likely, enable `modules.manifest_sync` and rerun the scaffold.
 
 In multi-human mode, complete the generated template's `Authorized scope` and
 `Risk and review evidence` sections. Scope authorization is distinct from the
 changed-file manifest: refreshing a manifest never expands approval. Bind
 review evidence to the exact current head SHA, and record a new decision after
-every push. In single-human mode, use the concise PR template and run local
-readiness; require a fresh independent review for genuinely high-risk work.
+every push. In small-team mode, complete the same two sections; there is no lease
+section, and a high-risk pull request records a fresh agent review or another
+operator's review before its author merges it. In single-human mode, use the
+concise PR template and run local readiness; require a fresh independent
+review for genuinely high-risk work.
 
 ---
 

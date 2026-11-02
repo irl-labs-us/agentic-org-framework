@@ -7,6 +7,7 @@ Routine fixes may use the same fields directly in the pull request.
 
 - **Decision or customer outcome:**
 - **Accountable owner:** {CEO}
+- **Operator directing the work:**
 - **Writer:**
 - **Independent reviewer, when high risk:**
 
@@ -34,9 +35,9 @@ Routine fixes may use the same fields directly in the pull request.
 - **Local readiness command:** `python3 scripts/check_pr_readiness.py --target-ref origin/__INTEGRATION_BRANCH__ --recorded-base <full-sha>`
 - **Changed paths:** Let Git and the pull request derive these; do not maintain a duplicate manifest.
 - **Review:** Obtain a fresh independent review for security, privacy, data custody, billing, CI, governance, production configuration, or other genuinely high-risk scope.
-- **Merge authority:** {CEO}
+- **Merge authority:** {Merge Authority}
 
-No lease ID, issue-ledger grant, worktree registration, or governance-specific PR body is required in single-human operator mode. Use an isolated worktree when parallel work could overlap, but treat it as a local safety tool rather than an authorization record.
+No lease ID or issue-ledger grant is required in single-human or small-team operator mode. In small-team mode the claim is the assigned tracking issue or ticket plus a draft pull request opened at the first commit, and the pull request body follows the governed template. Use an isolated worktree per agent session when sessions run in parallel; treat it as a local safety tool rather than an authorization record.
 
 ## Closeout
 

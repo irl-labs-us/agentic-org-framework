@@ -36,6 +36,7 @@ BUNDLE_SOURCES = (
     "templates/MISSION_PACKET_TEMPLATE.md",
     "templates/SINGLE_HUMAN_MISSION_TEMPLATE.md",
     "templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md",
+    "templates/SMALL_TEAM_PULL_REQUEST_TEMPLATE.md",
     "templates/SHAREABLE_AGENT_ORG_AND_COMMUNICATION_BUS.md",
     "templates/GIT_WORK_REGISTRY.md",
     "templates/AI_OUTPUT_DISCIPLINE_TEMPLATE.md",
@@ -71,9 +72,19 @@ def _render(text: str, config: FrameworkConfig, *, replace_branches: bool = Fals
             config.git_governance.ledger_url.rsplit("/", 1)[-1],
         )
     else:
-        text = text.replace(ledger_template, "N/A (solo-operator mode)")
+        mode_label = "small-team" if config.small_team_mode else "solo-operator"
+        text = text.replace(ledger_template, f"N/A ({mode_label} mode)")
         text = text.replace("<lease-ledger-issue-number>", "not-applicable")
     replacements = {
+        "{Operators}": _operator_list(config),
+        "{Operators Approver}": config.git_governance.operators_approver
+        or "N/A (not small-team mode)",
+        "{Merge Authority}": (
+            f"any of {_operator_list(config)}; high-risk work gets a fresh agent review "
+            "or another operator's review first"
+            if config.small_team_mode
+            else config.leadership.principal
+        ),
         "{Your Product}": config.product_name,
         "{CEO}": config.leadership.principal,
         "{Strategy & Portfolio Lead}": config.leadership.strategy_lead,
@@ -91,6 +102,15 @@ def _render(text: str, config: FrameworkConfig, *, replace_branches: bool = Fals
     return text
 
 
+def _operator_list(config: FrameworkConfig) -> str:
+    operators = config.git_governance.operators
+    if not operators:
+        return "N/A (not small-team mode)"
+    if len(operators) == 1:
+        return operators[0]
+    return ", ".join(operators[:-1]) + " and " + operators[-1]
+
+
 def _startup(config: FrameworkConfig) -> str:
     lines = [
         "# Agent startup",
@@ -100,15 +120,63 @@ def _startup(config: FrameworkConfig) -> str:
         "- `docs/CONTROL_MATRIX.md`",
         "- `docs/governance/AGENT_GOVERNANCE.md`",
     ]
-    if config.multi_human_mode:
+    if config.governed_mode:
         lines.append("- `docs/coordination/GIT_OPERATIONS_COVENANT.md`")
+    if config.multi_human_mode:
         lines.append("- `docs/coordination/GIT_WORK_REGISTRY.md`")
     if config.modules.customer_feedback:
         lines.append("- `docs/customer-feedback/BUILD_AGENT_INSTRUCTIONS.md` for customer-facing work")
     if config.modules.ai_output_discipline:
         lines.append("- `docs/design/AI_OUTPUT_DISCIPLINE.md` for AI-generated output")
+    lines.extend(["", "## How this repository is operated", ""])
+    lines.extend(_operating_rules(config))
     lines.extend(["", "This file is generated from `.agentic-org.json`.", ""])
     return "\n".join(lines)
+
+
+def _operating_rules(config: FrameworkConfig) -> list[str]:
+    integration = config.repository.integration_branch
+    if config.small_team_mode:
+        rules = [
+            f"- Operator mode `small-team`: {_operator_list(config)} may each merge into "
+            f"`{integration}`, including their own pull requests. There is no lease ledger and "
+            "no single Merge Steward. Agents never merge or mark a pull request ready.",
+            "- Claim work before starting: assign the tracking issue or ticket to the operator "
+            "directing the work. Open the pull request as a draft at the first commit so the "
+            "other operators can see what is in flight.",
+            "- A high-risk pull request needs a fresh agent review (a session with no memory of "
+            "writing it) or another operator's review, recorded under Risk and review evidence, "
+            "before its author merges it.",
+        ]
+    elif config.multi_human_mode:
+        rules = [
+            "- Operator mode `multi-human`: only the Merge Steward on duty merges. Hold a "
+            "granted lease in the live ledger before substantive repository work.",
+        ]
+    else:
+        rules = [
+            f"- Operator mode `single-human`: {config.leadership.principal} is the only person "
+            f"who merges into `{integration}`. Agents never merge or mark a pull request ready.",
+        ]
+    if config.parallel_sessions:
+        rules.extend(
+            [
+                "- Agent sessions `parallel`: give every agent session its own isolated "
+                "worktree and single-use branch. Never share a checkout between sessions.",
+                "- Before starting, list open pull requests and worktrees. If another session, "
+                "yours or anyone else's, touches the same files, agree an order with its owner "
+                "first: one writer per file scope.",
+                "- Open the pull request as a draft at the first commit so concurrent sessions "
+                "are visible to everyone directing agents.",
+            ]
+        )
+    else:
+        rules.append(
+            "- Agent sessions `one`: each operator runs one agent session at a time. Before "
+            "starting a second concurrent session, switch `git_governance.agent_sessions` to "
+            "`parallel` and rerun the scaffold."
+        )
+    return rules
 
 
 def _agent_guidance(config: FrameworkConfig) -> str:
@@ -138,17 +206,24 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
         "agent_governance",
         config.profile,
         config.git_governance.operator_mode,
+        f"{config.git_governance.agent_sessions}-sessions",
     }
     enabled.update(
         name
         for name in ("customer_feedback", "ai_output_discipline", "manifest_sync")
         if getattr(config.modules, name)
     )
-    rows = [row for row in raw["controls"] if row["module"] in enabled]
+    rows = [
+        row
+        for row in raw["controls"]
+        if enabled.intersection(
+            row["module"] if isinstance(row["module"], list) else [row["module"]]
+        )
+    ]
     lines = [
         "# Control Matrix",
         "",
-        f"Generated from `templates/control-matrix.json` schema {raw['schema_version']} for the `{config.profile}` agent profile and `{config.git_governance.operator_mode}` repository operator mode.",
+        f"Generated from `templates/control-matrix.json` schema {raw['schema_version']} for the `{config.profile}` agent profile, `{config.git_governance.operator_mode}` repository operator mode, and `{config.git_governance.agent_sessions}` agent sessions.",
         "The matrix states where a control is enforced and where human judgment remains authoritative.",
         "",
         "| ID | Control | Risk addressed | Owner | Evidence | Failure behavior | Status |",
@@ -182,7 +257,7 @@ def _file_mapping(config: FrameworkConfig) -> dict[str, str]:
         mapping["templates/LIGHTWEIGHT_MISSION_TEMPLATE.md"] = (
             "docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md"
         )
-    elif config.multi_human_mode:
+    elif config.lease_required:
         mapping.update(
             {
                 "templates/MISSION_PACKET_TEMPLATE.md": "docs/coordination/MISSION_PACKET_TEMPLATE.md",
@@ -198,15 +273,20 @@ def _file_mapping(config: FrameworkConfig) -> dict[str, str]:
         )
     if config.multi_human_mode:
         mapping[".github/pull_request_template.md"] = ".github/pull_request_template.md"
+    elif config.small_team_mode:
+        mapping["templates/SMALL_TEAM_PULL_REQUEST_TEMPLATE.md"] = (
+            ".github/pull_request_template.md"
+        )
     else:
         mapping["templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md"] = (
             ".github/pull_request_template.md"
         )
     if config.multi_human_mode:
+        mapping["templates/GIT_WORK_REGISTRY.md"] = "docs/coordination/GIT_WORK_REGISTRY.md"
+    if config.governed_mode:
         mapping.update(
             {
                 "templates/GIT_OPERATIONS_COVENANT.md": "docs/coordination/GIT_OPERATIONS_COVENANT.md",
-                "templates/GIT_WORK_REGISTRY.md": "docs/coordination/GIT_WORK_REGISTRY.md",
                 ".github/workflows/git-governance.yml": ".github/workflows/git-governance.yml",
                 "scripts/check_git_governance.py": "scripts/check_git_governance.py",
                 "scripts/create_feature_worktree.py": "scripts/create_feature_worktree.py",
