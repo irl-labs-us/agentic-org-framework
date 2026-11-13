@@ -225,6 +225,7 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
         "",
         f"Generated from `templates/control-matrix.json` schema {raw['schema_version']} for the `{config.profile}` agent profile, `{config.git_governance.operator_mode}` repository operator mode, and `{config.git_governance.agent_sessions}` agent sessions.",
         "The matrix states where a control is enforced and where human judgment remains authoritative.",
+        "Runtime assurance distinguishes policy documented, adapter tested (version and test evidence), and deployment enforced (environment and boundary evidence). Doctor checks artifacts; it does not certify runtime enforcement.",
         "",
         "| ID | Control | Risk addressed | Owner | Evidence | Failure behavior | Status |",
         "|---|---|---|---|---|---|---|",

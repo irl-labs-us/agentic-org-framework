@@ -560,6 +560,57 @@ independent under §III.11.
 
 ---
 
+### III.13 Runtime harness requirements
+
+For an executing agent, the harness must carry the mission and governance
+rules through every model call, tool action, compaction, and restart. These
+requirements apply to local and hosted agents regardless of model provider or
+SDK. Use the existing governance charter to record the implementation owner
+and evidence; no additional organizational role or service is required.
+
+1. **Enforce tool boundaries outside the model.** A trusted executor validates
+   tool inputs and outputs against declared schemas, allowed resources, side
+   effects, timeouts, and required authorization. Enforce filesystem, network,
+   and subprocess scope at the execution boundary. Credentials stay in trusted
+   execution infrastructure, outside model context and ordinary logs. Treat
+   retrieved content and tool results as untrusted data that cannot grant
+   authority; bound their size and validate outputs before downstream use.
+2. **Preserve authority through context changes.** Define a context limit and
+   compaction trigger. Preserve the mission, remaining allocation, attempts,
+   approvals, unresolved risks, and evidence references in authoritative state.
+   Reload and validate that state after compaction or restart. A generated
+   summary cannot reset limits or grant permissions. Define memory isolation
+   between users and missions, provenance, retention, and deletion.
+3. **Bind approvals to actions.** Where the risk policy requires approval,
+   show the proposed operation and affected resources. Record the approver,
+   operation and arguments, policy/version, expiry, and permitted reuse.
+   Revalidate before execution; changes outside the approved scope invalidate
+   the grant. A stopped or revoked parent blocks descendant actions. At the
+   90% budget gate, a verification grant permits one bounded step; another
+   step requires explicit authorization and must remain within allocation.
+4. **Recover without duplicating effects.** Persist operation identity and
+   pending/completed/failed or unknown status. On interruption, reconcile
+   whether the effect occurred before retrying; use idempotency where supported.
+   Unknown outcomes block automatic replay of consequential actions. Define
+   cancellation, descendant stop propagation, and reversal or safe handoff.
+5. **Make execution observable.** Expose concise running, awaiting-approval,
+   tool-execution, blocked, stopped, and completed states. Correlate redacted
+   tool activity, authorization decisions, results/errors, evidence, and usage
+   with the run and mission. Status describes observable activity and next
+   steps; it does not require private model reasoning.
+
+Before consequential or production use, verify these boundaries in the chosen
+deployment, including denied actions, context compaction, stale approvals,
+interrupted side effects, and parent cancellation. The product-neutral kit in
+`scripts/conformance/` checks a bounded subset of state transitions. Passing
+it does not prove sandboxing, identity, transactional persistence, or deployment
+enforcement. In the control matrix, distinguish **policy documented**,
+**adapter tested** (with version and test evidence), and **deployment enforced**
+(with environment and boundary evidence). Framework doctor checks artifact
+consistency; it does not certify runtime security.
+
+---
+
 ## Part IV — Agent Evaluation
 
 ### IV.1 The evaluation order (non-negotiable, and never averaged into one composite score)
