@@ -140,18 +140,20 @@ def readiness(bundle, now):
     mission = index.get(bundle.get('current_mission'))
     if mission is None:
         return {'complete': False, 'approved': False, 'errors': ['no current mission'], 'issues': []}
-    closure = set()
-    def visit(rid):
-        if rid in closure or rid not in index: return
-        closure.add(rid)
-        row = index[rid]
-        refs = list(row['links'])
-        for key in ['objective', 'strategy']:
-            if key in row['data']: refs.append(row['data'][key])
-        for key in ['evidence', 'evidence_plan']:
-            if isinstance(row['data'].get(key), list): refs.extend(row['data'][key])
-        for ref in refs: visit(ref)
-    visit(mission['id'])
+    def related(start):
+        closure, pending = set(), list(start)
+        while pending:
+            rid = pending.pop()
+            if rid in closure or rid not in index: continue
+            closure.add(rid)
+            row = index[rid]
+            pending.extend(row['links'])
+            for key in ['objective', 'strategy']:
+                if key in row['data']: pending.append(row['data'][key])
+            for key in ['evidence', 'evidence_plan']:
+                pending.extend(row['data'].get(key, []))
+        return closure
+    closure = related([mission['id']])
     objective = index.get(mission['data'].get('objective'))
     strategy = index.get(objective['data'].get('strategy')) if objective else None
     if not objective or objective['type'] != 'objective': errors.append('mission requires linked objective')
@@ -161,26 +163,34 @@ def readiness(bundle, now):
     elif strategy['status'] not in {'active', 'approved'}: errors.append('strategy is not approved/active')
     if mission['status'] not in {'active', 'approved'}: errors.append('mission is not approved/active')
     approvals = [r for r in bundle['records'] if r['type'] == 'approval' and r['data']['scope'] == mission['id'] and r['status'] == 'approved']
-    for approval in approvals: visit(approval['id'])
-    scoped = dict(bundle, records=[index[rid] for rid in closure])
-    issues = freshness(scoped, now)
-    for rid in closure:
-        row = index[rid]
-        if row['type'] == 'evaluation' and row['data']['candidate'] != mission['data'].get('candidate'): issues.append(f'{rid}: evaluation candidate does not match mission')
-        if row['type'] == 'evaluation' and row['data']['result'] != 'passed': issues.append(f'{rid}: evaluation did not pass')
-        if row['type'] == 'evidence' and row['status'] in {'rejected', 'expired', 'superseded', 'failed', 'unknown'}: issues.append(f'{rid}: evidence status {row["status"]}')
-        if row['type'] == 'evidence' and row['data']['kind'] in {'reported', 'inference', 'not_applicable'} and row['status'] != 'approved': issues.append(f'{rid}: evidence requires owner review')
+    def evidence_issues(selected):
+        scoped = dict(bundle, records=[index[rid] for rid in selected])
+        found = freshness(scoped, now)
+        for rid in selected:
+            row = index[rid]
+            if row['type'] == 'evaluation':
+                if row['data']['candidate'] != mission['data'].get('candidate'): found.append(f'{rid}: evaluation candidate does not match mission')
+                if row['status'] not in {'passed', 'complete', 'approved'}: found.append(f'{rid}: evaluation status {row["status"]}')
+                if row['data']['result'] != 'passed': found.append(f'{rid}: evaluation did not pass')
+                cases = row['data']['cases']
+                if not isinstance(cases, list) or not cases or any(isinstance(case, dict) and (case.get('result') != 'passed' or case.get('hard_fail')) for case in cases): found.append(f'{rid}: evaluation cases do not establish a pass')
+            if row['type'] == 'evidence' and row['status'] in {'rejected', 'expired', 'superseded', 'failed', 'unknown'}: found.append(f'{rid}: evidence status {row["status"]}')
+            if row['type'] == 'evidence' and row['data']['kind'] in {'reported', 'inference', 'not_applicable'} and row['status'] != 'approved': found.append(f'{rid}: evidence requires owner review')
+        return found
+    issues = evidence_issues(closure)
     valid_approvals = []
     for approval in approvals:
         data = approval['data']
-        bindings = data.get('bindings', {})
-        required_bindings = closure - {r['id'] for r in approvals}
-        if not isinstance(bindings, dict) or any(bindings.get(rid) != record_digest(index[rid]) for rid in required_bindings): continue
+        if instant(data['expires_at']) <= now: continue
         if not all(data.get(key) == mission['data'].get(key) and data.get(key) for key in ['candidate', 'policy_revision']): continue
+        selected = closure | related([approval['id']])
+        if evidence_issues(selected): continue
+        bindings = data.get('bindings', {})
+        required_bindings = selected - {approval['id']}
+        if not isinstance(bindings, dict) or any(bindings.get(rid) != record_digest(index[rid]) for rid in required_bindings): continue
         if not approval['dependencies'] or any(bundle['versions'].get(k) != v for k, v in approval['dependencies'].items()): continue
         if any(index[e]['type'] not in {'evidence', 'evaluation'} for e in data['evidence']): continue
         if not all(approval['dependencies'].get('record:' + e) == str(index[e]['version']) for e in data['evidence']): continue
-        if instant(data['expires_at']) <= now: continue
         valid_approvals.append(approval)
     if not valid_approvals: issues.append('no current candidate/policy/evidence-bound recorded approval')
     complete = not errors and not issues

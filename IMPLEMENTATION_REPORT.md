@@ -31,3 +31,17 @@ Two simulated review cycles verify mechanics, not longitudinal usefulness. Job-h
 During actual setup, ask the owner for cadence and activation preferences; do not assume the example Monday 09:00 America/New_York schedule. A selected cadence alone does not establish an installed, running scheduler. Verify its first run and evidence location after activation.
 
 Pre-existing local FRAMEWORK and AI-output-discipline edits and untracked adopter documents were preserved. The historical Phase 5 pilot report was not rewritten as current pilot evidence.
+
+
+## PR review follow-up
+
+Independent PR review found and verified fixes for two readiness defects:
+retained historical approvals no longer contaminate a replacement approval's
+evidence, and withdrawn/failed evaluations cannot satisfy a gate through an old
+passing result. Contradictory per-case failures also block evaluation evidence.
+Scheduled review artifact upload explicitly includes the two generated JSON
+reports in the hidden state directory and fails if neither exists.
+
+Validation after fixes: 183 framework tests, template-quality checks, compilation,
+and diff checks passed. The reviewer independently reran targeted probes and all
+27 operational tests. Hosted CI status is recorded in the PR.

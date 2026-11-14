@@ -112,3 +112,26 @@ def test_nonfinite_limits_and_json_rejected(tmp_path):
     path = tmp_path/'records.json'
     path.write_text('{"value": NaN}')
     with pytest.raises(ValueError, match='non-finite'): load(path)
+
+
+def test_historical_approval_does_not_poison_valid_replacement():
+    bundle = approved()
+    old = copy.deepcopy(bundle['records'][-1])
+    old['id'] = 'historical-approval'
+    old['data']['expires_at'] = '2026-11-13T13:00:00Z'
+    old['data']['candidate'] = 'previous-candidate'
+    bundle['records'].append(old)
+    assert readiness(bundle, NOW)['approved']
+    bundle['records'][-2]['data']['expires_at'] = old['data']['expires_at']
+    assert not readiness(bundle, NOW)['approved']
+
+
+def test_withdrawn_or_contradictory_evaluation_cannot_authorize_mission():
+    for status, cases in [('superseded', ['case-1']), ('failed', ['case-1']),
+                          ('passed', [{'result': 'failed'}]), ('passed', [{'result': 'passed', 'hard_fail': True}])]:
+        bundle = approved()
+        evidence = bundle['records'][3]
+        evidence.update(type='evaluation', status=status)
+        evidence['data'] = {'candidate': 'fixture-1', 'result': 'passed', 'cases': cases, 'limits': ['synthetic']}
+        bundle['records'][-1]['data']['bindings'][evidence['id']] = record_digest(evidence)
+        assert not readiness(bundle, NOW)['complete']
