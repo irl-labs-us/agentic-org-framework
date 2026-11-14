@@ -153,6 +153,9 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
     required_controls = {
         "config-validation",
         "agent-governance",
+        "runtime-boundaries",
+        "runtime-continuity",
+        "runtime-conformance",
     }
     if config.governed_mode:
         required_controls.update({"git-governance", "authorized-scope", "candidate-bound-review"})

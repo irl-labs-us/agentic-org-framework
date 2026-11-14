@@ -53,6 +53,40 @@ def two_attempt_limit(factory: AdapterFactory) -> None:
     )
 
 
+def single_verification_step(factory: AdapterFactory) -> None:
+    adapter = factory()
+    adapter.create_mission("m", allocation=100, candidate_id="c1", policy_version="p1")
+    adapter.record_usage("m", 90, action="substantive")
+    adapter.authorize_verification("m")
+    adapter = adapter.restart()
+    adapter.record_usage("m", 1, action="verification")
+    adapter = adapter.restart()
+    _denied(
+        lambda: adapter.record_usage("m", 1, action="verification"),
+        "one verification authorization allowed multiple steps after restart",
+    )
+    if adapter.snapshot("m")["usage"] != 91:
+        raise ConformanceViolation("denied verification changed usage")
+    adapter.authorize_verification("m")
+    adapter.record_usage("m", 1, action="verification")
+
+
+def ancestor_authority(factory: AdapterFactory) -> None:
+    for transition in ("stop", "revoke_authority"):
+        adapter = factory()
+        adapter.create_mission("root", allocation=100, candidate_id="c1", policy_version="p1")
+        adapter.delegate("root", "child", allocation=50)
+        adapter.delegate("child", "grandchild", allocation=25)
+        adapter.bind_approval("grandchild")
+        adapter.protected_action("grandchild")
+        getattr(adapter, transition)("root")
+        adapter = adapter.restart()
+        _denied(
+            lambda: adapter.protected_action("grandchild"),
+            f"ancestor {transition} did not block descendant action after restart",
+        )
+
+
 def approval_invalidation(factory: AdapterFactory) -> None:
     adapter = factory()
     adapter.create_mission("m", allocation=100, candidate_id="c1", policy_version="p1")
@@ -87,6 +121,8 @@ def revocation(factory: AdapterFactory) -> None:
 SCENARIOS: dict[str, Callable[[AdapterFactory], None]] = {
     "delegated_usage": delegated_usage,
     "ninety_percent_gate": ninety_percent_gate,
+    "single_verification_step": single_verification_step,
+    "ancestor_authority": ancestor_authority,
     "two_attempt_limit": two_attempt_limit,
     "approval_invalidation": approval_invalidation,
     "restart_durability": restart_durability,

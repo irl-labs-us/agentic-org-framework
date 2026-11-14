@@ -118,7 +118,7 @@ Part III.8 forks once at onboarding by the number of humans with integration aut
 | `templates/AGENT_GOVERNANCE_TEMPLATE.md` | Mandatory §III.11 charter for any production agent: acceptable and prohibited use, prohibited data, risk-tiered human review, Governance Board and escalation, pre-launch/red-team gates, drift and incident monitoring, and independent outcome audits. |
 | `scripts/customer_feedback_harness.py` | Strict feedback normalization and deterministic as-of weekly-review rendering behind §III.9. It isolates malformed rows, applies privacy intake guardrails to decoded metadata, and surfaces conflicting record identities. Product-agnostic; extend via `pseudonym_namespace` and `extra_forbidden_fragments` rather than forking it. |
 | `scripts/build_weekly_feedback_review.py` | CLI that renders a weekly review Markdown file from one or more JSONL feedback exports. |
-| `scripts/conformance/` | Product-neutral adapter protocol, restartable reference adapter, and executable fixtures for budgets, attempts, approvals, persistence, and revocation. This is a contract test kit, not a production runtime. |
+| `scripts/conformance/` | Product-neutral adapter protocol, restartable reference adapter, and executable fixtures for budgets, attempts, approvals, one-use verification grants, persistence, and ancestor stop/revocation. See `FRAMEWORK.md` §III.13 for runtime requirements beyond this bounded contract test kit. |
 | `.github/workflows/template-quality.yml` | Source-template CI: unit/conformance tests, Python compilation, workflow/link checks, and a profile × operator-mode × branch scaffold-and-doctor matrix. |
 | `pyproject.toml` | Python/test metadata for the framework harness; install the `test` extra to run the checked-in pytest suite. |
 

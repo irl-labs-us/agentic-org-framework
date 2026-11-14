@@ -74,6 +74,36 @@
       "status": "manual"
     },
     {
+      "id": "runtime-boundaries",
+      "module": "agent_governance",
+      "control": "Runtime tool, credential, and untrusted-data boundaries",
+      "risk": "Unauthorized tool access, secret leakage, and content-driven privilege changes",
+      "owner": "Runtime owner and independent Assurance",
+      "evidence": "Governance runtime contract; executor configuration and deployment boundary tests",
+      "failure": "Deny out-of-scope actions; block consequential or production use without boundary evidence",
+      "status": "policy documented; product adapter tests and deployment enforcement unverified"
+    },
+    {
+      "id": "runtime-continuity",
+      "module": "agent_governance",
+      "control": "Context continuity, action approvals, recovery, and execution visibility",
+      "risk": "Lost limits, stale authority, duplicated effects, and untraceable execution",
+      "owner": "Runtime owner and accountable human",
+      "evidence": "Governance runtime contract; compaction, approval, cancellation, replay, and redacted-trace tests",
+      "failure": "Stop on invalid authority or uncertain consequential effects; reconcile before resume",
+      "status": "policy documented; product adapter tests and deployment enforcement unverified"
+    },
+    {
+      "id": "runtime-conformance",
+      "module": "agent_governance",
+      "control": "Bounded runtime state-transition conformance",
+      "risk": "Budget, retry, approval, restart, and ancestor-authority violations",
+      "owner": "Adapter owner and independent Assurance",
+      "evidence": "scripts/conformance results for the versioned product adapter; separate deployment evidence",
+      "failure": "Fail adapter acceptance for a covered transition; require separate evidence for other runtime boundaries",
+      "status": "reference adapter tested by template CI; product adapter and deployment enforcement unverified"
+    },
+    {
       "id": "lease-ledger",
       "module": "multi-human",
       "control": "Live Git-work lease ledger",

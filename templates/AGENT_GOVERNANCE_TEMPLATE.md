@@ -101,6 +101,27 @@ decision owner, result, expiry/review date, and affected policy or mission.
 5. The accountable owner records approve / narrow / defer / reject, the
    rationale, the control owner, and the next review date.
 
+### Runtime harness contract
+
+For every executing agent, complete these fields under `FRAMEWORK.md` §III.13.
+Use the same contract for local and hosted execution, with any model or SDK.
+Existing runtime controls may supply the evidence; no separate service is
+required. Mark an inapplicable capability with a reason and assurance review.
+
+| Boundary | Required implementation and evidence | Owner / implementation / test evidence |
+|---|---|---|
+| Tools and data | Trusted executor validates input/output schemas, allowed resources, side effects, timeouts, and authorization; enforces filesystem/network/subprocess scope; keeps credentials outside model context and ordinary logs. Retrieved content and tool results cannot change policy or permissions; size and downstream outputs are validated. | [owner / location / denied-action and injection tests] |
+| Context and memory | Context limit/compaction trigger; authoritative mission, remaining budget, attempts, approvals, risks, and evidence survive compaction/restart and are revalidated. Memory has user/mission isolation, provenance, retention, and deletion rules. Summaries cannot grant authority. | [owner / location / compaction and isolation tests] |
+| Action approval | Risk-required approvals show and bind operation, arguments, resources, approver, policy/version, expiry, and permitted reuse; executor checks freshness and scope. Ancestor stop/revocation blocks descendants. Each 90% verification grant permits one bounded step within allocation. | [owner / location / stale-grant, descendant-stop, and consumed-grant tests] |
+| Recovery | Durable operation identity and status; reconcile uncertain side effects before retry; prevent duplicates where possible and block automatic consequential replay when outcome is unknown. Define cancellation, descendant stop propagation, reversal, and safe handoff. | [owner / location / interruption and duplicate-prevention tests] |
+| Execution visibility | Run/mission-correlated, redacted tool activity, authorization decisions, results/errors, evidence, and usage; concise running, awaiting-approval, tool-execution, blocked, stopped, and completed status. Private model reasoning is not required. | [owner / location / trace and redaction tests] |
+
+Record each control's assurance level in the control matrix: **policy
+documented**, **adapter tested** with version/test evidence, or **deployment
+enforced** with environment/boundary evidence. The reference conformance kit
+tests only its listed state transitions. Passing it or framework doctor does
+not establish production authorization, isolation, or durable execution.
+
 ### Pre-launch gate and red team
 
 Before first production use and after any material change, record:
@@ -113,6 +134,8 @@ Before first production use and after any material change, record:
   abuse cases;
 - human-review usability, refusal/escalation behavior, audit-log completeness,
   and incident-response rehearsal;
+- runtime-contract evidence above, including denied tool access, compaction,
+  stale approvals, parent cancellation, and interrupted side effects;
 - canary or bounded rollout, stop thresholds, rollback/safe-disable procedure,
   and on-call owner; and
 - an independent go/no-go decision linked to the evidence.

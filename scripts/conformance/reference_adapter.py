@@ -97,6 +97,9 @@ class InMemoryAdapter:
                 raise AuthorizationDenied("usage would exceed allocation")
         for state in lineage:
             state.usage += units
+            if state.usage - units >= state.allocation * 0.9:
+                # One usage call represents the single bounded verification step.
+                state.verification_authorized = False
 
     def authorize_verification(self, mission_id: str) -> None:
         self._state(mission_id).verification_authorized = True
@@ -129,7 +132,7 @@ class InMemoryAdapter:
 
     def protected_action(self, mission_id: str) -> None:
         state = self._state(mission_id)
-        if state.stopped or not state.authority_active:
+        if any(parent.stopped or not parent.authority_active for parent in self._lineage(mission_id)):
             raise AuthorizationDenied("mission is stopped or authority is revoked")
         if (
             state.approval_candidate != state.candidate_id
