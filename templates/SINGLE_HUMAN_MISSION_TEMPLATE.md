@@ -12,6 +12,20 @@ Routine fixes may use the same fields directly in the pull request.
 - **Writer:**
 - **Independent reviewer, when high risk:**
 
+## Strategy, lifecycle, and funding
+
+- **Strategy reference and version:** `docs/strategy/STRATEGY.md`; approved version
+- **Objective and alignment evidence:**
+- **Lifecycle stage:** Discover / Define / Design / Build / Launch / Iterate
+- **Phase lead:**
+- **Exit evidence and acceptance criteria:**
+- **Next owner and handoff acceptance:**
+- **Funded execution phase:**
+- **Maximum allocation and elapsed time:**
+- **Maximum attempts on one blocker:** Two
+- **90% rule:** Stop substantive work; only explicitly authorized verification may continue
+- **Reauthorization authority:** {CEO}; lifecycle advancement grants no additional funding
+
 ## Scope
 
 - **Included behavior and paths:**
@@ -33,7 +47,7 @@ Routine fixes may use the same fields directly in the pull request.
 - **Feature branch:**
 - **Target branch:** `__INTEGRATION_BRANCH__`
 - **Exact fetched target SHA:**
-- **Local readiness command:** `python3 scripts/check_pr_readiness.py --target-ref origin/__INTEGRATION_BRANCH__ --recorded-base <full-sha>`
+- **Local readiness command:** `python3 scripts/check_pr_readiness.py --target-ref __REMOTE__/__INTEGRATION_BRANCH__ --recorded-base <full-sha>`
 - **Changed paths:** Let Git and the pull request derive these; do not maintain a duplicate manifest.
 - **Review:** Obtain a fresh independent review for security, privacy, data custody, billing, CI, governance, production configuration, or other genuinely high-risk scope.
 - **Merge authority:** {Merge Authority}

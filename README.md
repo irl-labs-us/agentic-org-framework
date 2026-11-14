@@ -4,6 +4,16 @@ A product-agnostic operating system for a human principal (a "CEO") directing a 
 
 This repo is a **GitHub template**. Use it to scaffold the coordination layer of a new project; don't fork it as a dependency.
 
+See `IMPLEMENTATION_REPORT.md` for current verification and pilot limits, and `MIGRATIONS.md` for existing installations.
+
+## Choose an entry path
+
+- **New application:** use `SETUP.md` for adoption, then `OPERATIONS.md` to connect strategy, missions, evidence, evaluations, and reviews.
+- **Existing application:** start with `ASSESS.md`; repository installation is optional. Convert accepted findings into proposed bounded missions.
+- **Organization assessment:** use `ASSESS.md` and `templates/assessment/ORGANIZATION.md` to inspect a selected portfolio and consequential workflows before proposing changes.
+
+Operational records and reviews are advisory by default. Installation consistency, recorded mission readiness, independently authenticated approval, and deployment enforcement are distinct claims. Review cadence is selected during setup; configuration alone does not install a scheduler.
+
 ## Quick start
 
 Point any capable agent — Claude, GPT, Gemini, whatever you're already using — at this repo and say:

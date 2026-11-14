@@ -1,0 +1,99 @@
+{
+  "complete": false,
+  "approved": false,
+  "authenticated": false,
+  "errors": [
+    "strategy is not approved/active",
+    "mission is not approved/active"
+  ],
+  "issues": [
+    "no current candidate/policy/evidence-bound recorded approval"
+  ],
+  "approval_note": "approved means valid recorded declaration only; identity authentication and deployed enforcement are not verified.",
+  "current_mission": {
+    "id": "mission-1",
+    "type": "mission",
+    "version": 1,
+    "owner": "Angela",
+    "status": "proposed",
+    "created_at": "2026-11-14T17:06:03.343882+00:00",
+    "updated_at": "2026-11-14T17:06:03.343882+00:00",
+    "source": {
+      "ref": "job-hunt-ai/docs/strategy/STRATEGY.md",
+      "version": "023af2346519c754e640e107cea124234fe0448a"
+    },
+    "links": [],
+    "dependencies": {},
+    "data": {
+      "objective": "objective-1",
+      "scope": "Read-only offline framework integration pilot",
+      "allocation": {
+        "cost": 0,
+        "hours": 1
+      },
+      "attempts": {
+        "used": 0,
+        "maximum": 2
+      },
+      "checkpoint": "implementation",
+      "problem": "Connect existing evaluation evidence to ongoing framework guidance",
+      "mechanism": "Reference authoritative product evaluation contracts",
+      "alternatives": [
+        "Replace product eval contracts",
+        "Reference existing evidence"
+      ],
+      "assumption": "Linked evidence improves continuation decisions",
+      "baseline": "Existing staging/offline measurement contracts",
+      "success_criteria": "Offline checks execute and limitations remain visible",
+      "stop_criteria": "No production changes or paid calls",
+      "evidence_plan": [
+        "evidence-1"
+      ]
+    }
+  },
+  "strategy_and_objectives": [
+    {
+      "id": "strategy-1",
+      "type": "strategy",
+      "version": 1,
+      "owner": "Angela",
+      "status": "proposed",
+      "created_at": "2026-11-14T17:06:03.343882+00:00",
+      "updated_at": "2026-11-14T17:06:03.343882+00:00",
+      "source": {
+        "ref": "job-hunt-ai/docs/strategy/STRATEGY.md",
+        "version": "023af2346519c754e640e107cea124234fe0448a"
+      },
+      "links": [],
+      "dependencies": {},
+      "data": {
+        "problem": "Career decisions require a trustworthy evidence-backed assessment foundation",
+        "policy": "Validate decision clarity before expansion; users retain consequential choices"
+      }
+    },
+    {
+      "id": "objective-1",
+      "type": "objective",
+      "version": 1,
+      "owner": "Angela",
+      "status": "proposed",
+      "created_at": "2026-11-14T17:06:03.343882+00:00",
+      "updated_at": "2026-11-14T17:06:03.343882+00:00",
+      "source": {
+        "ref": "job-hunt-ai/docs/strategy/STRATEGY.md",
+        "version": "023af2346519c754e640e107cea124234fe0448a"
+      },
+      "links": [],
+      "dependencies": {},
+      "data": {
+        "strategy": "strategy-1",
+        "success_criteria": "Establish a trustworthy assessment foundation; outcome verification remains pending"
+      }
+    }
+  ],
+  "pending_decisions": [
+    "decision-1"
+  ],
+  "controls": [],
+  "authority": "Advisory summary; consult authoritative records and the named owner."
+}

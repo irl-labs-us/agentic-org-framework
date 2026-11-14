@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -29,6 +30,15 @@ DEFAULT_HIGH_RISK_PATHS = (
     "docs/coordination/GIT_OPERATIONS_COVENANT.md",
     "docs/coordination/GIT_WORK_REGISTRY.md",
 )
+MANDATORY_HIGH_RISK_PATHS = (
+    ".agentic-org.json", "FRAMEWORK.md", "AGENTS.md", "CLAUDE.md",
+    "scripts/framework_config.py", "scripts/check_git_governance.py",
+    "scripts/framework_doctor.py", "scripts/scaffold_framework.py",
+    "scripts/operating_records.py", "scripts/operating_review.py",
+    "scripts/run_evaluations.py", "docs/governance/", "docs/strategy/",
+    "docs/operations/", ".github/",
+)
+
 DEFAULT_FORBIDDEN_PATHS = (".env", ".idea/", "node_modules/")
 
 
@@ -413,3 +423,19 @@ def load_framework_config(
             f"config is not valid JSON at line {exc.lineno}, column {exc.colno}"
         ) from exc
     return parse_framework_config(raw, source_path=config_path)
+
+
+def policy_revision(config: FrameworkConfig) -> str:
+    """Bind review records to policy content, independently of schema version."""
+    if config.source_path is None:
+        return f"agentic-org-config/v{config.schema_version}"
+    payload = json.dumps(config.to_dict(), sort_keys=True, separators=(",", ":"))
+    return "agentic-org-policy/sha256:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Print the configured policy revision for review records")
+    parser.add_argument("--repo", default=".")
+    args = parser.parse_args()
+    print(policy_revision(load_framework_config(repo=args.repo, required=True)))

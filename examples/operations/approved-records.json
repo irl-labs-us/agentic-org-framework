@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "current_mission": "mission-1",
+  "versions": {
+    "strategy": "1",
+    "record:evidence-1": "1"
+  },
+  "records": [
+    {
+      "id": "strategy-1",
+      "type": "strategy",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "approved",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "problem": "Unclear submission failures",
+        "policy": "Bounded improvements with owner review"
+      }
+    },
+    {
+      "id": "objective-1",
+      "type": "objective",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "strategy": "strategy-1",
+        "success_criteria": "Observe fewer failed submissions"
+      }
+    },
+    {
+      "id": "mission-1",
+      "type": "mission",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "active",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "objective": "objective-1",
+        "scope": "Offline form validation fixture",
+        "allocation": {
+          "hours": 2,
+          "cost": 0
+        },
+        "attempts": {
+          "used": 0,
+          "maximum": 2
+        },
+        "checkpoint": "implementation",
+        "problem": "Unclear failures",
+        "mechanism": "Specific feedback",
+        "alternatives": [
+          "Manual help",
+          "Validation message"
+        ],
+        "assumption": "Specific feedback helps recovery",
+        "baseline": "Synthetic error case",
+        "success_criteria": "Pass boundary and recovery cases",
+        "stop_criteria": "Two failed attempts",
+        "evidence_plan": [
+          "evidence-1"
+        ],
+        "candidate": "fixture-1",
+        "policy_revision": "policy-1"
+      }
+    },
+    {
+      "id": "evidence-1",
+      "type": "evidence",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "kind": "observation",
+        "summary": "Synthetic fixture only",
+        "access_owner": "Example owner",
+        "retention": "Delete with fixture",
+        "max_age_seconds": 86400
+      }
+    },
+    {
+      "id": "decision-1",
+      "type": "decision",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "question": "Continue to real pilot?",
+        "evidence": [
+          "evidence-1"
+        ],
+        "rationale": "Await owner judgment"
+      }
+    },
+    {
+      "id": "approval-1",
+      "type": "approval",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "approved",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1",
+        "record:evidence-1": "1"
+      },
+      "data": {
+        "approver": "Named owner",
+        "scope": "mission-1",
+        "candidate": "fixture-1",
+        "policy_revision": "policy-1",
+        "evidence": [
+          "evidence-1"
+        ],
+        "expires_at": "2026-11-15T13:00:00Z",
+        "reuse": "one candidate",
+        "authentication": "declaration",
+        "bindings": {
+          "mission-1": "d5e33219b58fa766e4dd79c56224b339e9186f4f23088f0a43aecdd19842abb3",
+          "objective-1": "3dd88ac1f1687df85721ef56b963cebe0e1bfeb932d426a6cab22feb9af4bc29",
+          "strategy-1": "9d261f52a86115b830f062f4d663f7f6eed22bd5230a2ffbe23169e5a375810f",
+          "evidence-1": "2d2a482ba8eeea336ba2a2b5ce2d85edc3746e30844db90d0c44911305573802"
+        }
+      }
+    }
+  ]
+}

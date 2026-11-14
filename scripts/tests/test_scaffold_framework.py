@@ -64,7 +64,7 @@ def test_scaffold_is_idempotent_and_uses_custom_branches(tmp_path: Path) -> None
     config = load_framework_config(repo=tmp_path, required=True)
     changes, _ = plan_changes(tmp_path, desired_files(SOURCE, config))
 
-    assert {change.action for change in changes} == {"unchanged"}
+    assert {change.action for change in changes} == {"unchanged", "preserve"}
     release = (tmp_path / ".github/workflows/release-pr-sync.yml").read_text()
     feature = (tmp_path / ".github/workflows/feature-pr-manifest-sync.yml").read_text()
     assert "branches: [develop]" in release
@@ -166,7 +166,7 @@ def test_governance_workflow_uses_trusted_base_policy() -> None:
     assert "AGENTIC_ORG_BOOTSTRAP_HEAD_SHA" not in workflow
 
 
-def test_scaffold_refuses_to_overwrite_human_edit(tmp_path: Path) -> None:
+def test_scaffold_preserves_completed_charter(tmp_path: Path) -> None:
     write_config(tmp_path)
     install(tmp_path)
     governed = tmp_path / "docs/governance/AGENT_GOVERNANCE.md"
@@ -174,9 +174,10 @@ def test_scaffold_refuses_to_overwrite_human_edit(tmp_path: Path) -> None:
     config = load_framework_config(repo=tmp_path, required=True)
     changes, hashes = plan_changes(tmp_path, desired_files(SOURCE, config))
 
-    assert any(c.action == "conflict" and c.path.endswith("AGENT_GOVERNANCE.md") for c in changes)
-    with pytest.raises(FrameworkConfigError, match="refusing to overwrite"):
-        apply_changes(tmp_path, changes, hashes)
+    assert any(c.action == "preserve" and c.path.endswith("AGENT_GOVERNANCE.md") for c in changes)
+    apply_changes(tmp_path, changes, hashes)
+    assert governed.read_text().endswith("human edit\n")
+    assert diagnose(tmp_path, config)[0] == []
 
 
 def test_scaffold_can_explicitly_preserve_existing_human_file(tmp_path: Path) -> None:
@@ -197,7 +198,7 @@ def test_scaffold_can_explicitly_preserve_existing_human_file(tmp_path: Path) ->
     apply_changes(tmp_path, changes, hashes)
 
     manifest = json.loads((tmp_path / ".agentic-org.generated.json").read_text())
-    assert manifest["preserved"] == ["AGENTS.md"]
+    assert "AGENTS.md" in manifest["preserved"]
     assert agents.read_text().startswith("# Existing project rules")
     errors, notes = diagnose(tmp_path, config)
     assert errors == []
@@ -208,7 +209,7 @@ def test_first_run_accepts_exact_files_from_github_template(tmp_path: Path) -> N
     write_config(tmp_path)
     destination = tmp_path / ".github/pull_request_template.md"
     destination.parent.mkdir(parents=True)
-    destination.write_bytes((SOURCE / "templates/SINGLE_HUMAN_PULL_REQUEST_TEMPLATE.md").read_bytes())
+    destination.write_bytes((SOURCE / ".github/pull_request_template.md").read_bytes())
     config = load_framework_config(repo=tmp_path, required=True)
 
     changes, _ = plan_changes(
@@ -316,3 +317,74 @@ def test_agent_sessions_shape_startup_and_matrix(
     assert present in startup
     assert absent not in startup
     assert ("| parallel-sessions |" in matrix) is (agent_sessions == "parallel")
+
+
+@pytest.mark.parametrize("profile", ["lightweight", "solo", "multi"])
+@pytest.mark.parametrize("mode", ["single-human", "small-team", "multi-human"])
+@pytest.mark.parametrize("custom", [False, True])
+def test_actual_tracked_template_adoption(tmp_path, profile, mode, custom):
+    import shutil
+    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=SOURCE).decode().split("\0")
+    for relative in filter(None, tracked):
+        source = SOURCE / relative
+        if source.is_file():
+            dest = tmp_path / relative
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, dest)
+    write_config(tmp_path, profile=profile, operator_mode=mode)
+    if not custom:
+        path = tmp_path / ".agentic-org.json"
+        raw = json.loads(path.read_text())
+        raw["repository"].update(remote="origin", integration_branch="staging", release_branch="main")
+        path.write_text(json.dumps(raw))
+    config = load_framework_config(repo=tmp_path, required=True)
+    desired = desired_files(SOURCE, config)
+    changes, hashes = plan_changes(tmp_path, desired, bootstrap_hashes=canonical_bootstrap_hashes(SOURCE, config))
+    apply_changes(tmp_path, changes, hashes)
+    assert diagnose(tmp_path, config)[0] == []
+    assert not (tmp_path / ".github/workflows/template-quality.yml").exists()
+    assert (tmp_path / ".github/workflows/git-governance.yml").exists() == (mode != "single-human")
+    assert not any(c.action in {"create", "update", "remove", "conflict"} for c in plan_changes(tmp_path, desired)[0])
+
+
+def test_custom_source_workflow_is_never_removed(tmp_path):
+    write_config(tmp_path)
+    workflow = tmp_path / ".github/workflows/git-governance.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("# customized\n")
+    config = load_framework_config(repo=tmp_path, required=True)
+    changes, hashes = plan_changes(tmp_path, desired_files(SOURCE, config), bootstrap_hashes=canonical_bootstrap_hashes(SOURCE, config))
+    with pytest.raises(FrameworkConfigError):
+        apply_changes(tmp_path, changes, hashes)
+    assert workflow.read_text() == "# customized\n"
+
+
+def test_legacy_manifest_charter_migrates_without_drift(tmp_path):
+    import hashlib
+    write_config(tmp_path)
+    install(tmp_path)
+    manifest_path = tmp_path / ".agentic-org.generated.json"
+    manifest = json.loads(manifest_path.read_text())
+    charter = tmp_path / "docs/governance/AGENT_GOVERNANCE.md"
+    manifest["files"]["docs/governance/AGENT_GOVERNANCE.md"] = hashlib.sha256(charter.read_bytes()).hexdigest()
+    manifest.pop("seed_once")
+    manifest_path.write_text(json.dumps(manifest))
+    charter.write_text(charter.read_text() + "\nOwner approved revised policy.\n")
+    config = load_framework_config(repo=tmp_path, required=True)
+    assert diagnose(tmp_path, config)[0] == []
+    install(tmp_path)
+    assert "Owner approved revised policy." in charter.read_text()
+    assert "docs/governance/AGENT_GOVERNANCE.md" not in json.loads(manifest_path.read_text())["files"]
+
+
+def test_installation_does_not_claim_mission_readiness(tmp_path):
+    from framework_doctor import diagnose_readiness
+    write_config(tmp_path)
+    install(tmp_path)
+    assert diagnose(tmp_path, load_framework_config(repo=tmp_path, required=True))[0] == []
+    assert diagnose_readiness(tmp_path, "mission")[0]
+    assert (tmp_path / "FRAMEWORK.md").read_bytes() == (SOURCE / "FRAMEWORK.md").read_bytes()
+    assert (tmp_path / "scripts/conformance/reference_adapter.py").exists()
+    mission = (tmp_path / "docs/coordination/MISSION_PACKET_TEMPLATE.md").read_text()
+    assert "upstream/develop" in mission
+    assert "origin/" not in mission

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "candidate": "synthetic-candidate-1",
+  "versions": {
+    "prompt": "1",
+    "model": "N/A: deterministic supplied-output fixture",
+    "tool": "1",
+    "data": "synthetic-1",
+    "policy": "1",
+    "permissions": "none",
+    "config": "fixture-config-1",
+    "evaluator": "exact-string-v1"
+  },
+  "adapter": "offline-supplied-output-v1",
+  "results": {
+    "boundary": {
+      "status": "executed",
+      "output": "Enter a value",
+      "efficiency": {
+        "cost": 0
+      }
+    },
+    "recovery": {
+      "status": "executed",
+      "output": "Accepted",
+      "efficiency": {
+        "cost": 0
+      }
+    }
+  }
+}

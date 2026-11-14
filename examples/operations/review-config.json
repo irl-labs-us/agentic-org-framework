@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "owner": "Example owner",
+  "destination": "local review-state.json outbox",
+  "required_response": "Review evidence and decide bounded follow-up",
+  "sources": [
+    "evidence-1"
+  ],
+  "threshold": "Any missing, stale, expired or invalid evidence",
+  "max_runtime_seconds": 30,
+  "max_cost": 0,
+  "permitted_actions": [
+    "recommend"
+  ],
+  "cadence": {
+    "kind": "weekly",
+    "timezone": "America/New_York",
+    "time": "09:00",
+    "weekday": 0
+  }
+}

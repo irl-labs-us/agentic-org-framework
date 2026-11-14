@@ -132,6 +132,8 @@ def test_governance_uses_configured_branch_names_and_paths(tmp_path):
         .replace("Risk class: ordinary", "Risk class: high")
         .replace("Reviewer independence: not-required", "Reviewer independence: independent")
     )
+    from framework_config import load_framework_config, policy_revision
+    body.write_text(body.read_text().replace("agentic-org-config/v1", policy_revision(load_framework_config(path=config))))
     args = args_for(repo, base_sha, head_sha, body)
     args.base_ref = "develop"
     args.config = config
@@ -192,6 +194,8 @@ def test_small_team_config_drops_only_the_lease_requirement(tmp_path):
     raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
     raw["git_governance"]["operators_approver"] = "Operator A"
     (repo / ".agentic-org.json").write_text(json.dumps(raw))
+    from framework_config import load_framework_config, policy_revision
+    body.write_text(body.read_text().replace("agentic-org-config/v1", policy_revision(load_framework_config(repo=repo))))
     args = args_for(repo, base_sha, head_sha, body)
     args.solo_mode = None
 
@@ -215,6 +219,8 @@ def _high_risk_review_by_principal(tmp_path, operator_mode):
         raw["git_governance"]["operators"] = ["Operator A", "Operator B"]
         raw["git_governance"]["operators_approver"] = "Operator A"
     (repo / ".agentic-org.json").write_text(json.dumps(raw))
+    from framework_config import load_framework_config, policy_revision
+    body.write_text(body.read_text().replace("agentic-org-config/v1", policy_revision(load_framework_config(repo=repo))))
     body.write_text(
         body.read_text(encoding="utf-8").replace(
             "- Reviewer: Independent Reviewer", "- Reviewer: Operator A"
@@ -239,3 +245,17 @@ def test_single_human_principal_still_cannot_review_high_risk_work(tmp_path):
 
     with pytest.raises(governance.GovernanceError, match="differ from the configured principal"):
         governance.validate(args)
+
+
+@pytest.mark.parametrize("path", [".agentic-org.json", "scripts/check_git_governance.py", "docs/governance/AGENT_GOVERNANCE.md", "docs/operations/review-config.json"])
+def test_policy_paths_cannot_be_downgraded_by_configuration(path):
+    assert governance.is_high_risk(path, ("unrelated/",))
+
+
+def test_policy_revision_changes_when_policy_changes(tmp_path):
+    from framework_config import parse_framework_config, policy_revision
+    raw = json.loads((SCRIPT_DIR.parent / ".agentic-org.example.json").read_text())
+    first = policy_revision(parse_framework_config(raw, source_path=tmp_path / "config.json"))
+    raw["git_governance"]["high_risk_paths"].append("payments/")
+    second = policy_revision(parse_framework_config(raw, source_path=tmp_path / "config.json"))
+    assert first != second

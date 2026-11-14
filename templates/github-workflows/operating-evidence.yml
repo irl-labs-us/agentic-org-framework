@@ -1,0 +1,21 @@
+name: Operating evidence
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate operational records
+        run: python scripts/operating_records.py validate --records docs/operations/records.json
+      - name: Check recorded mission readiness
+        run: python scripts/operating_records.py readiness --records docs/operations/records.json

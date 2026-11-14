@@ -24,7 +24,18 @@ Either way, this is a **conversation**, not a form. Expect it to take 20–40 mi
 
 ---
 
-## Section 0 — Orientation
+## Section 0 — Orientation and entry path
+
+First select the intended entry path, independently of agent profile, human integration mode, risk, and lifecycle:
+
+- **New application:** continue this interview, establishing strategy before funding or implementation.
+- **Existing application assessment:** use [ASSESS.md](ASSESS.md) to establish a baseline and bounded next decision. Existing strategy and owner documents remain authoritative. Return here only when adoption or an accepted implementation mission calls for installation.
+- **Organization assessment:** use [ASSESS.md](ASSESS.md) and its organization scope template. Agree a selected portfolio and two or three workflows, decision owner and evidence access. No Git repository or framework installation in the organization is required.
+
+The selected real organization is Emotiva, but its specific decision, participating owners and internal evidence access are still open. Do not substitute historical PROPEL/Emotiva materials for current evidence or permission. Job-hunt-ai is the first operating-loop pilot; the new-application pilot is selected later. These choices do not authorize production changes.
+
+For the new-application path, continue:
+
 
 Ask, briefly:
 
@@ -87,7 +98,7 @@ Don't ask the user to invent numbers from scratch — propose the framework's de
 
 - **Circuit breakers** (§II.2 default shape): report/forecast at 50%, freeze scope at 75%, stop substantive work at 90%, terminate at 100%. Ask: accept as-is, or tighter for this project's risk tolerance?
 - **Two-attempt rule** (§II.3): confirm the user understands this applies to every mission by default — no separate setup needed, just flag it now so it isn't a surprise later.
-- **Weekly Portfolio Review** (§II.6): ask who attends (should be CEO + Strategy Lead at minimum) and pick a day/time to actually put on a calendar — an unscheduled ritual doesn't happen.
+- **Weekly Portfolio Review** (§II.6): ask who attends (should be CEO + Strategy Lead at minimum), then choose a day, local time and IANA timezone. Distinguish this human meeting from the optional automated evidence review configured in Section 9A. Record a proposed meeting until its calendar installation is actually verified.
 
 **Output:** a short "Budget defaults" note — doesn't need its own file; fold it into the Strategy Constitution's Governance section or a short paragraph in the handoff summary.
 
@@ -217,11 +228,29 @@ Offer to draft the first mission packet for whatever the user wants to build. Li
 
 ---
 
+## Section 9A — Optional ongoing evidence review
+
+Read [OPERATIONS.md](OPERATIONS.md). Explain that the default is advisory: the command inspects local records and prepares recommendations. It cannot fund work, approve its own findings, send messages, or install a schedule. Ordinary application tests and authenticated production gates remain separate.
+
+Ask one group at a time and preserve earlier answers:
+
+1. **Enablement and purpose:** does the owner want a scheduled review now, later, or manual-only? Which decision and record IDs should it inspect? Leave `enabled: false` until the owner has selected the required settings.
+2. **Cadence:** choose daily or weekly with an IANA timezone and local `HH:MM`; weekly also needs a weekday (Monday = 0). Alternatively choose a positive interval in seconds. Do not silently select a weekly automation because a weekly human meeting exists.
+3. **Ownership and response:** name the review owner, evidence source IDs, threshold/trigger, notification destination and required response, including acknowledgement/escalation expectations. Explain that the supplied implementation persists a local outbox; a destination label alone does not deliver a message.
+4. **Limits and authority:** set maximum runtime and cost. The reference command permits only `recommend` and zero paid cost; external collectors, model calls and notification adapters need separately authorized credentials, data and budgets. Explicit blocking gates need their own configured and verified enforcement; an advisory review cannot become an approval.
+5. **Create owner records:** use the shared record contract and preserve imported authoritative references. Store operational records in `docs/operations/records.json` and review configuration in `docs/operations/review-config.json`. Record current mission, allocation, pending decisions and evidence freshness. Validate with the documented commands; structural completeness never authenticates an approval.
+6. **Prove manual operation:** run `python3 scripts/operating_review.py --records docs/operations/records.json --config docs/operations/review-config.json`. Inspect the state and local outbox, then repeat to verify due-window handling. Use a disposable fixture for expiry/failure/deduplication scenarios, not modified production evidence.
+7. **Optional installation:** only after schedule settings, scope, destination, credentials and budget have been selected, install the requested CI or host scheduler adapter following `OPERATIONS.md`. Apply a host timeout, durable state and overlap control. Verify a real automatic run and an independent overdue check before claiming it is operating. No scheduler should be installed merely by completing this interview.
+
+**Output:** configuration plus a handoff note saying **disabled**, **configured but not installed**, **installed but unverified**, or **installed and verified**, with actual run evidence and the owner of outage detection. Record unsupported adapters as open work. A configuration file or calculated next-due timestamp is not proof of a working schedule.
+
+---
+
 ## Section 10 — Handoff summary
 
 Close with:
 
 1. A list of every file you created or edited, with its path.
-2. Anything left `TBD` and why.
+2. Anything left `TBD` and why, including evidence access, unaccepted decisions, review configuration, schedule installation/verification, and production boundaries.
 3. The Day-0 checklist from `FRAMEWORK.md` Part VII, marked off against what this session actually completed — call out anything still open (e.g. "Weekly Portfolio Review not yet on a calendar," "Strategic Discovery lane intentionally deferred," or "production blocked pending Agent Governance Charter approval").
 4. A one-line reminder: *this is a first draft — Part VI's guardrails exist because even a good-faith setup can drift; revisit Part I only when strategy changes, but run Part II's rhythm every week starting now.*

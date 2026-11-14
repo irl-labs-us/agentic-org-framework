@@ -1,0 +1,156 @@
+{
+  "packet_version": "1.0.0-draft",
+  "run_kind": "deterministic_repository_checks",
+  "code_version": "023af2346519c754e640e107cea124234fe0448a",
+  "dirty_worktree": false,
+  "generated_at": "2026-11-14T17:06:03.343882+00:00",
+  "boundaries": {
+    "calibration_pairs": 0,
+    "calibration_status": "not_started",
+    "evaluator_reviews": 0,
+    "external_cost_usd": 0,
+    "external_model_calls": 0,
+    "governed_fixture_rows_registered": 0,
+    "human_reviews": 0,
+    "private_customer_content_accessed": false,
+    "production_data_accessed": false,
+    "production_prevalence_eligible": false,
+    "provider_input_tokens": 0,
+    "provider_output_tokens": 0,
+    "release_authorized": false
+  },
+  "execution": {
+    "summary_state": "completed_checks_passed",
+    "totals": {
+      "collected": 12,
+      "errors": 0,
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    }
+  },
+  "checks": [
+    {
+      "check_key": "CF-CHECK-01",
+      "check_sha256": "d252d98b207fc0dabbb1359bb9ff4b890aa6853f6d581c03315ee1c11c8155a2",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/tests/test_career_fit_contract.py::test_phase_zero_reference_contract_is_valid",
+      "status": "passed"
+    },
+    {
+      "check_key": "CF-CHECK-02",
+      "check_sha256": "5de9fb0f60eea165301263b99557e3e8a3749f4b758f4aaad238e19ed93cb268",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/tests/test_career_fit_contract.py::test_approved_hypothesis_cannot_conflict_with_hard_constraint",
+      "status": "passed"
+    },
+    {
+      "check_key": "CF-CHECK-03",
+      "check_sha256": "0f0c4d3e35c2ba320f0fe3dcbd96ff1eb45d239bc9f76be3270bb5ad6c1f6fb8",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/tests/test_career_fit_contract.py::test_every_evidence_item_requires_a_complete_permission_matrix",
+      "status": "passed"
+    },
+    {
+      "check_key": "CF-CHECK-04",
+      "check_sha256": "c60c20a9a1ae48a12d39ee69ee5662283b80f570dcf82ad7bed52510d5c56ac3",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/tests/test_career_fit_contract.py::test_rolewise_inferences_must_be_grounded",
+      "status": "passed"
+    },
+    {
+      "check_key": "RA-CHECK-01",
+      "check_sha256": "0a4b7f2dff8646fd453bb3d60c67d75452b4dc71d4be315a9d3b12b112b28faf",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_assessment_activation_contract.py::test_current_contract_is_valid_and_user_report_has_no_internal_jargon",
+      "status": "passed"
+    },
+    {
+      "check_key": "RA-CHECK-02",
+      "check_sha256": "c7c4126781b0c114429ff42bb46c3ee00f1ef570fb757992954a0f565c60aad2",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_setup_session_ownership.py::test_scoped_get_and_delete_reject_a_foreign_user",
+      "status": "passed"
+    },
+    {
+      "check_key": "RA-CHECK-03",
+      "check_sha256": "8460e66498f9708e3ac7e1ac317c12c2d7a5b15a63e881d18de336644c94e69a",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_assessment_activation_contract.py::test_stopped_or_missing_internal_output_cannot_activate",
+      "status": "passed"
+    },
+    {
+      "check_key": "RA-CHECK-04",
+      "check_sha256": "d4acdc0959b82f703dfa8684ae387d4b00bb5d89dd5729151bad02c5e2dea12e",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_assessment_activation_contract.py::test_placeholder_criteria_are_rejected",
+      "status": "passed"
+    },
+    {
+      "check_key": "JS-CHECK-01",
+      "check_sha256": "be5a47a85069d7efdc36521815a0bc2454ab1ec91543867bb44912448ad27f92",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_agent2_search_report.py::test_good_search_report_has_required_sections",
+      "status": "passed"
+    },
+    {
+      "check_key": "JS-CHECK-02",
+      "check_sha256": "0e0124d64893ae0ccd60c1169540aca16358e141490514901a5877f32732d7ee",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_agent2_search_report.py::test_missing_handoff_is_caught",
+      "status": "passed"
+    },
+    {
+      "check_key": "JS-CHECK-03",
+      "check_sha256": "a92fc0aacecb7df0d83acd0d93a2570176053d3201b87278fd1889860b2a0a19",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_agent2_search_report.py::test_disallowed_company_is_caught",
+      "status": "passed"
+    },
+    {
+      "check_key": "JS-CHECK-04",
+      "check_sha256": "753824d50ac080e831d8241d32acf3152855baf7d5e4bc4a9e216b5fbddff4dd",
+      "collected": 1,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1,
+      "selector": "backend/evals/test_agent2_search_report.py::test_bad_application_link_is_caught",
+      "status": "passed"
+    }
+  ]
+}

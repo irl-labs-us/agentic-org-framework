@@ -182,6 +182,26 @@
       "evidence": "Mission evidence and AI output checklist",
       "failure": "Acceptance owner blocks delivery",
       "status": "manual"
+    },
+    {
+      "id": "operational-evidence",
+      "module": "always",
+      "control": "Strategy, mission and evaluation evidence",
+      "risk": "Unsupported or stale readiness claims",
+      "owner": "Mission owner and reviewer",
+      "evidence": "Operational records and evaluation results",
+      "failure": "Configured recorded-evidence gates fail; owner resolves findings",
+      "status": "record checked; authentication and deployment enforcement external"
+    },
+    {
+      "id": "scheduled-review",
+      "module": "always",
+      "control": "Configurable recurring review",
+      "risk": "Expired decisions and missing evidence unnoticed",
+      "owner": "Configured review owner",
+      "evidence": "Review state, local outbox and scheduler run history",
+      "failure": "Surface changed findings and failed execution; no automatic remediation",
+      "status": "disabled until configured; scheduler activation verified separately"
     }
   ]
 }

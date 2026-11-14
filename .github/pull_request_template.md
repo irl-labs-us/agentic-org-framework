@@ -78,7 +78,7 @@ missing, renamed, misplaced, or inconsistent with the current PR head.
 - Reviewer independence: not-required
 - Decision: approve
 - Reviewed head SHA:
-- Policy/config version: agentic-org-config/v1
+- Policy/config version: <!-- Run python3 scripts/framework_config.py --repo . against the trusted base policy -->
 - Evidence references:
 - Decision timestamp:
 - Decision expiry: None
