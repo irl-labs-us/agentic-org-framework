@@ -18,6 +18,7 @@ Copy this template for every new build or user-facing agent assignment. Register
 
 - **Assignment:**
 - **Required outcome:**
+- **Priority rationale:** Why now; method or judgment used; evidence and uncertainty; alternatives deferred; revisit condition. Link a comparison if useful; see `FRAMEWORK.md` §II.8.
 - **Strategy version:** 1.0
 - **Strategy connection:**
 - **Customer promise:** {one sentence on the concrete outcome this delivers for the end user}
