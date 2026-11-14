@@ -15,10 +15,47 @@ from framework_config import FrameworkConfig, FrameworkConfigError, load_framewo
 
 MANIFEST_NAME = ".agentic-org.generated.json"
 BUNDLE_DIR = ".agentic-org-scaffold"
+SEED_ONCE = {
+    "docs/governance/AGENT_GOVERNANCE.md",
+    "docs/strategy/STRATEGY.md",
+    "docs/operations/CURRENT_CONTEXT.md",
+    "docs/operations/records.json",
+    "docs/operations/review-config.json",
+}
+
 BUNDLE_SOURCES = (
+    "MIGRATIONS.md",
+    "examples/operations/README.md",
+    "examples/operations/approved-records.json",
+    'ASSESS.md',
+    'OPERATIONS.md',
+    'scripts/operating_records.py',
+    'scripts/operating_review.py',
+    'scripts/run_evaluations.py',
+    'templates/github-workflows/operating-review.yml',
+    'templates/github-workflows/operating-evidence.yml',
+    'templates/assessment/IMPROVEMENT.md',
+    'templates/assessment/INTAKE.md',
+    'templates/assessment/ORGANIZATION.md',
+    'templates/assessment/REPORT.md',
+    'examples/operations/eval-outputs.json',
+    'examples/operations/eval-regression.json',
+    'examples/operations/eval-suite.json',
+    'examples/operations/records.json',
+    'examples/operations/review-config.json',
+
+    "FRAMEWORK.md",
+    "templates/STRATEGY_TEMPLATE.md",
+    "scripts/conformance/__init__.py",
+    "scripts/conformance/README.md",
+    "scripts/conformance/fixtures.py",
+    "scripts/conformance/protocol.py",
+    "scripts/conformance/reference_adapter.py",
+    "scripts/tests/test_conformance.py",
     "AGENTS.md",
     ".github/pull_request_template.md",
     ".github/workflows/git-governance.yml",
+    ".github/workflows/template-quality.yml",
     "scripts/framework_config.py",
     "scripts/scaffold_framework.py",
     "scripts/framework_doctor.py",
@@ -97,6 +134,7 @@ def _render(text: str, config: FrameworkConfig, *, replace_branches: bool = Fals
     for old, new in replacements.items():
         text = text.replace(old, new)
     if replace_branches:
+        text = re.sub(r"\borigin(?=/|\s)", config.repository.remote, text)
         text = re.sub(r"\bstaging\b", config.repository.integration_branch, text)
         text = re.sub(r"\bmain\b", config.repository.release_branch, text)
     return text
@@ -117,6 +155,9 @@ def _startup(config: FrameworkConfig) -> str:
         "",
         "Read these project controls before substantive work:",
         "",
+        "- `FRAMEWORK.md` (canonical specification)",
+        "- `docs/strategy/STRATEGY.md` (owner-approved strategy; drafts authorize no work)",
+        "- `docs/operations/CURRENT_CONTEXT.md` (current mission and unresolved decisions)",
         "- `docs/CONTROL_MATRIX.md`",
         "- `docs/governance/AGENT_GOVERNANCE.md`",
     ]
@@ -247,6 +288,30 @@ def _control_matrix(source: Path, config: FrameworkConfig) -> str:
 
 def _file_mapping(config: FrameworkConfig) -> dict[str, str]:
     mapping = {
+        "MIGRATIONS.md": "MIGRATIONS.md",
+        "examples/operations/README.md": "examples/operations/README.md",
+        "examples/operations/approved-records.json": "examples/operations/approved-records.json",
+        'ASSESS.md': 'ASSESS.md',
+        'OPERATIONS.md': 'OPERATIONS.md',
+        'scripts/operating_records.py': 'scripts/operating_records.py',
+        'scripts/operating_review.py': 'scripts/operating_review.py',
+        'scripts/run_evaluations.py': 'scripts/run_evaluations.py',
+        'templates/github-workflows/operating-review.yml': 'templates/github-workflows/operating-review.yml',
+        'templates/github-workflows/operating-evidence.yml': 'templates/github-workflows/operating-evidence.yml',
+        'templates/assessment/IMPROVEMENT.md': 'templates/assessment/IMPROVEMENT.md',
+        'templates/assessment/INTAKE.md': 'templates/assessment/INTAKE.md',
+        'templates/assessment/ORGANIZATION.md': 'templates/assessment/ORGANIZATION.md',
+        'templates/assessment/REPORT.md': 'templates/assessment/REPORT.md',
+        'examples/operations/eval-outputs.json': 'examples/operations/eval-outputs.json',
+        'examples/operations/eval-regression.json': 'examples/operations/eval-regression.json',
+        'examples/operations/eval-suite.json': 'examples/operations/eval-suite.json',
+        'examples/operations/records.json': 'examples/operations/records.json',
+        'examples/operations/review-config.json': 'examples/operations/review-config.json',
+
+        "FRAMEWORK.md": "FRAMEWORK.md",
+        "templates/STRATEGY_TEMPLATE.md": "docs/strategy/STRATEGY.md",
+        **{name: name for name in BUNDLE_SOURCES if name.startswith("scripts/conformance/")},
+        "scripts/tests/test_conformance.py": "scripts/tests/test_conformance.py",
         "templates/AGENT_GOVERNANCE_TEMPLATE.md": "docs/governance/AGENT_GOVERNANCE.md",
         "scripts/framework_config.py": "scripts/framework_config.py",
         "scripts/scaffold_framework.py": "scripts/scaffold_framework.py",
@@ -323,7 +388,19 @@ def _file_mapping(config: FrameworkConfig) -> dict[str, str]:
 def desired_files(source: Path, config: FrameworkConfig) -> dict[str, bytes]:
     mapping = _file_mapping(config)
 
+    review_config = json.loads((source / "examples/operations/review-config.json").read_text())
+    review_config.update(enabled=False, owner=config.leadership.principal, sources=[])
     result: dict[str, bytes] = {
+        "docs/operations/records.json": (json.dumps({"schema_version": 1, "current_mission": None, "versions": {}, "records": []}, indent=2) + "\n").encode(),
+        "docs/operations/review-config.json": (json.dumps(review_config, indent=2) + "\n").encode(),
+        "docs/operations/CURRENT_CONTEXT.md": (
+            "# Current operating context\n\nStatus: draft; no mission authorized.\n\n"
+            "- Strategy: `docs/strategy/STRATEGY.md`\n"
+            "- Current mission: unassigned; owner must link the authorized mission.\n"
+            "- Unresolved decisions: strategy approval, mission owner, allocation, and evidence gates.\n"
+            "- Review: `python3 scripts/operating_review.py --records docs/operations/records.json --config docs/operations/review-config.json` after operational records are configured.\n\n"
+            "Owner-maintained index: update links and decisions at each handoff; summaries do not grant authority.\n"
+        ).encode(),
         "AGENTS.md": _agent_guidance(config).encode(),
         "docs/coordination/AGENT_STARTUP.md": _startup(config).encode(),
         "docs/CONTROL_MATRIX.md": _control_matrix(source, config).encode(),
@@ -335,7 +412,7 @@ def desired_files(source: Path, config: FrameworkConfig) -> dict[str, bytes]:
         replace_branches = Path(destination).suffix in {".md", ".yml", ".yaml"}
         rendered = (
             raw
-            if Path(destination).suffix == ".py"
+            if Path(destination).suffix == ".py" or destination == "FRAMEWORK.md"
             else _render(raw, config, replace_branches=replace_branches)
         )
         result[destination] = rendered.encode()
@@ -350,6 +427,10 @@ def canonical_bootstrap_hashes(source: Path, config: FrameworkConfig) -> dict[st
         for source_name, destination in _file_mapping(config).items()
     }
     result["AGENTS.md"] = _hash((source / "AGENTS.md").read_bytes())
+    # GitHub templates contain the multi-human PR file before mode selection.
+    result[".github/pull_request_template.md"] = _hash((source / ".github/pull_request_template.md").read_bytes())
+    for relative in (".github/workflows/git-governance.yml", ".github/workflows/template-quality.yml"):
+        result[relative] = _hash((source / relative).read_bytes())
     return result
 
 
@@ -391,7 +472,7 @@ def plan_changes(
         path = target / relative
         if not path.exists():
             changes.append(PlannedChange("create", relative, content))
-        elif relative in preserve_existing:
+        elif relative in preserve_existing or relative in SEED_ONCE:
             changes.append(PlannedChange("preserve", relative))
         else:
             current = path.read_bytes()
@@ -403,8 +484,12 @@ def plan_changes(
                 changes.append(PlannedChange("update", relative, content))
             else:
                 changes.append(PlannedChange("conflict", relative))
-    for relative, old_hash in sorted(owned.items()):
-        if relative in desired:
+    # Only exact source-template workflows may be removed on first adoption.
+    removable = dict(owned)
+    if not (target / MANIFEST_NAME).exists():
+        removable.update({p: h for p, h in bootstrap_hashes.items() if p.startswith(".github/workflows/")})
+    for relative, old_hash in sorted(removable.items()):
+        if relative in desired or relative in SEED_ONCE or relative in preserve_existing:
             continue
         path = target / relative
         if not path.exists():
@@ -415,7 +500,7 @@ def plan_changes(
     return changes, {
         relative: _hash(content)
         for relative, content in desired.items()
-        if relative not in preserved
+        if relative not in preserved and relative not in SEED_ONCE
     }
 
 
@@ -437,6 +522,8 @@ def apply_changes(target: Path, changes: list[PlannedChange], hashes: dict[str, 
         "schema_version": 1,
         "files": dict(sorted(hashes.items())),
         "preserved": preserved,
+        "seed_once": sorted(SEED_ONCE),
+        "source": {"specification": "FRAMEWORK.md", "sha256": hashes.get("FRAMEWORK.md")},
     }
     (target / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 

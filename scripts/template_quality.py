@@ -52,7 +52,7 @@ def check_workflow_syntax() -> None:
 
 
 def check_local_markdown_links() -> None:
-    paths = [ROOT / name for name in ("README.md", "SETUP.md", "FRAMEWORK.md")]
+    paths = [ROOT / name for name in ("README.md", "SETUP.md", "FRAMEWORK.md", "ASSESS.md", "OPERATIONS.md", "MIGRATIONS.md")]
     paths += sorted((ROOT / "templates").rglob("*.md"))
     failures: list[str] = []
     pattern = re.compile(r"\[[^\]]+\]\(([^)]+)\)")

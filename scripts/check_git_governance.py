@@ -19,6 +19,8 @@ from framework_config import (
     DEFAULT_FORBIDDEN_PATHS,
     DEFAULT_HIGH_RISK_PATHS,
     DEFAULT_LEDGER_URL,
+    MANDATORY_HIGH_RISK_PATHS,
+    policy_revision,
     FrameworkConfig,
     FrameworkConfigError,
     load_framework_config,
@@ -249,7 +251,7 @@ def validate_review_evidence(
         raise GovernanceError(
             f"review evidence is bound to {reviewed_head}, not current head {head_sha}"
         )
-    expected_policy = f"agentic-org-config/v{config.schema_version}"
+    expected_policy = policy_revision(config)
     if policy_version != expected_policy:
         raise GovernanceError(f"Policy/config version must be {expected_policy}")
     if high_risk and risk_class != "high":
@@ -353,7 +355,7 @@ def is_high_risk(
     return (
         any(
             _configured_path_match(path, rule, directory_anywhere=False)
-            for rule in configured_paths
+            for rule in (*MANDATORY_HIGH_RISK_PATHS, *configured_paths)
         )
         or any(token in lowered for token in ("auth", "security", "billing", "delete"))
     )

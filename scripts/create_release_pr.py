@@ -22,6 +22,7 @@ from framework_config import (
     DEFAULT_LEDGER_URL,
     FrameworkConfigError,
     load_framework_config,
+    policy_revision,
 )
 
 # TODO: point this at your project's live Git-work lease ledger (a pinned
@@ -249,6 +250,7 @@ def render_release_body(
     evidence_references: str = "release verification evidence",
     decision_timestamp: str = "2026-01-01T00:00:00Z",
     decision_expiry: str = "None",
+    policy_version: str = "agentic-org-config/v1",
 ) -> str:
     # Bare, non-f-string literals: SETUP.md's project-wide find-and-replace
     # substitutes {CEO}/{Strategy & Portfolio Lead} with real names across
@@ -309,7 +311,7 @@ Release the exact verified `{integration_branch}` state to production through `{
 - Reviewer independence: {reviewer_independence}
 - Decision: {decision}
 - Reviewed head SHA: {context.head_sha}
-- Policy/config version: agentic-org-config/v1
+- Policy/config version: {policy_version}
 - Evidence references: {evidence_references}
 - Decision timestamp: {decision_timestamp}
 - Decision expiry: {decision_expiry}
@@ -792,6 +794,7 @@ def main() -> None:
             evidence_references="; ".join(args.evidence_ref),
             decision_timestamp=args.decision_timestamp,
             decision_expiry=args.decision_expiry,
+            policy_version=policy_revision(config),
         )
         if args.dry_run:
             print(body, end="")

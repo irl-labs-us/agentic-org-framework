@@ -1,0 +1,41 @@
+name: Operating review
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: operating-review
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        with:
+          path: .agentic-org-state
+          key: operating-review-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: operating-review-${{ github.ref_name }}-
+      - name: Review when configured cadence is due
+        run: |
+          mkdir -p .agentic-org-state
+          python scripts/operating_review.py --records docs/operations/records.json --config docs/operations/review-config.json --state .agentic-org-state/review.json > .agentic-org-state/latest-report.json
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .agentic-org-state
+          key: operating-review-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: operating-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .agentic-org-state
+          retention-days: 14

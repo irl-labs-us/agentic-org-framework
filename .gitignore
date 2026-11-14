@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+.agentic-org-state/
+docs/operations/review-state.json*

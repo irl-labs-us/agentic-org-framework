@@ -972,3 +972,32 @@ since it demonstrates the packet template against a real, if small, case
 ```
 
 **Honest self-check this appendix exists to make visible:** this session itself started without a stated allocation ceiling — precisely the start-gate failure Part II.5 says should block substantive work ("missing allocation data is a start-gate failure, not permission to spend without limit"). It was reasonable to proceed anyway given the bounded, single-session, consulting-style framing Angela gave up front, but the framework should not quietly exempt its own creation from the rule it teaches. Filing this after the fact, with the gap named rather than smoothed over, is the behavior Part VI.4 (preserve attribution) and Part IV.2 (don't penalize honest disclosure) are meant to produce.
+
+
+## Operational entry points and continuing use
+
+The executable operating layer is documented in `OPERATIONS.md`. Use `SETUP.md`
+for a new application and `ASSESS.md` for an existing application or organization.
+Assessment does not require adopting repository governance. Findings remain
+advisory until the accountable owner authorizes a bounded mission.
+
+At funding, implementation, release, and observed-use checkpoints, link the
+current strategy objective, falsifiable assumption, alternatives, baseline,
+acceptance evidence, allocation, and owner decision. A successful build does
+not establish customer value or authorize the next funded phase. Evidence that
+contradicts the diagnosis, a repeated failed assumption, changed customer
+needs, or cross-product conflict initiates strategy review; it does not silently
+change the strategy.
+
+Setup asks the owner to configure review cadence, timezone, enabled state,
+evidence sources, response owner, and operating limits. Portable review commands
+and repository CI collect findings; they do not authorize autonomous remediation.
+Recorded schedule preferences and verified scheduler installation are separate.
+A later session uses current operating records to identify expired evidence,
+unresolved decisions, and affected gates. Unknown evidence remains visible.
+
+Versioned product eval cases and results complement software tests, bounded
+runtime conformance, and actual customer observations. Preserve separate hard
+failures and graded quality; evaluate efficiency only after required gates pass.
+Keep product-specific evaluation tools and authoritative source records where
+they already exist, importing references rather than replacing their contracts.

@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from framework_config import FrameworkConfig, FrameworkConfigError, load_framework_config
+from scaffold_framework import SEED_ONCE
 
 PLACEHOLDERS = re.compile(
     r"\{Your Product\}|\{CEO\}|\{Strategy & Portfolio Lead\}|\{Assurance Owner\}|"
@@ -23,6 +24,11 @@ PLACEHOLDERS = re.compile(
 def expected_paths(config: FrameworkConfig) -> set[str]:
     paths = {
         ".agentic-org.json",
+        "FRAMEWORK.md",
+        "docs/strategy/STRATEGY.md",
+        "docs/operations/CURRENT_CONTEXT.md",
+        "scripts/conformance/protocol.py",
+        "scripts/conformance/reference_adapter.py",
         "AGENTS.md",
         ".github/pull_request_template.md",
         "docs/CONTROL_MATRIX.md",
@@ -32,6 +38,13 @@ def expected_paths(config: FrameworkConfig) -> set[str]:
         "scripts/scaffold_framework.py",
         "scripts/framework_doctor.py",
         "scripts/check_pr_readiness.py",
+        "scripts/operating_records.py",
+        "scripts/operating_review.py",
+        "scripts/run_evaluations.py",
+        "docs/operations/records.json",
+        "docs/operations/review-config.json",
+        "OPERATIONS.md",
+        "ASSESS.md",
     }
     if config.profile == "lightweight":
         paths.add("docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md")
@@ -89,7 +102,7 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
         if not path.is_file():
             errors.append(f"missing required file: {relative}")
             continue
-        if path.suffix in {".md", ".yml", ".yaml"}:
+        if relative != "FRAMEWORK.md" and path.suffix in {".md", ".yml", ".yaml"}:
             match = PLACEHOLDERS.search(path.read_text(encoding="utf-8"))
             if match:
                 errors.append(f"unresolved placeholder {match.group(0)!r} in {relative}")
@@ -184,6 +197,8 @@ def diagnose(root: Path, config: FrameworkConfig) -> tuple[list[str], list[str]]
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             for relative, expected_hash in manifest["files"].items():
+                if relative in SEED_ONCE:
+                    continue  # Safe v1 migration: completed owner records are not generated drift.
                 path = root / relative
                 actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
                 if actual != expected_hash:
@@ -284,16 +299,48 @@ def diagnose_github(config: FrameworkConfig) -> tuple[list[str], list[str]]:
     return errors, notes
 
 
+def diagnose_readiness(root: Path, level: str, *, now: str | None = None) -> tuple[list[str], list[str]]:
+    """Readiness is separate from installation and never authenticates declarations."""
+    errors: list[str] = []
+    notes = [f"[checked] requested readiness: {level}"]
+    strategy = root / "docs/strategy/STRATEGY.md"
+    if not strategy.is_file():
+        errors.append("mission readiness requires docs/strategy/STRATEGY.md")
+    records = root / "docs/operations/records.json"
+    if not records.is_file():
+        errors.append("readiness requires configured docs/operations/records.json with strategy, mission, owners, decisions, and evidence")
+        return errors, notes
+    try:
+        from operating_records import load, clock, readiness
+        result = readiness(load(records), clock(now))
+        errors.extend(str(error) for error in result.get("errors", []))
+        errors.extend(str(issue) for issue in result.get("issues", []))
+        if not result.get("complete") and not errors:
+            errors.append("operational records are incomplete")
+        if level == "production" and not result.get("authenticated", False):
+            errors.append("production readiness requires authenticated external approval and deployment-boundary evidence; recorded declarations alone do not establish approval")
+        notes.append("[manual] readiness checks record completeness; policy acceptance remains a human decision")
+    except (ImportError, OSError, ValueError, KeyError, TypeError) as exc:
+        errors.append(f"cannot evaluate operating readiness: {exc}")
+    return errors, notes
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--config", type=Path)
     parser.add_argument("--github", action="store_true", help="Also inspect GitHub branch protection")
+    parser.add_argument("--readiness", choices=("installation", "mission", "production"), default="installation")
+    parser.add_argument("--now", help="ISO timestamp for reproducible readiness checks")
     args = parser.parse_args()
     root = args.repo.expanduser().resolve()
     try:
         config = load_framework_config(repo=root, path=args.config, required=True)
         errors, notes = diagnose(root, config)
+        if args.readiness != "installation":
+            readiness_errors, readiness_notes = diagnose_readiness(root, args.readiness, now=args.now)
+            errors.extend(readiness_errors)
+            notes.extend(readiness_notes)
         if args.github:
             github_errors, github_notes = diagnose_github(config)
             errors.extend(github_errors)
@@ -307,7 +354,7 @@ def main() -> None:
         print(f"ERROR: {error}", file=sys.stderr)
     if errors:
         raise SystemExit(1)
-    print("PASS: framework installation is consistent")
+    print("PASS: framework installation is consistent" if args.readiness == "installation" else f"PASS: {args.readiness} readiness checks passed")
 
 
 if __name__ == "__main__":

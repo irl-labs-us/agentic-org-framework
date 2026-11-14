@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "current_mission": "mission-1",
+  "versions": {
+    "strategy": "1"
+  },
+  "records": [
+    {
+      "id": "strategy-1",
+      "type": "strategy",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "problem": "Unclear submission failures",
+        "policy": "Bounded improvements with owner review"
+      }
+    },
+    {
+      "id": "objective-1",
+      "type": "objective",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "strategy": "strategy-1",
+        "success_criteria": "Observe fewer failed submissions"
+      }
+    },
+    {
+      "id": "mission-1",
+      "type": "mission",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "objective": "objective-1",
+        "scope": "Offline form validation fixture",
+        "allocation": {
+          "hours": 2,
+          "cost": 0
+        },
+        "attempts": {
+          "used": 0,
+          "maximum": 2
+        },
+        "checkpoint": "implementation",
+        "problem": "Unclear failures",
+        "mechanism": "Specific feedback",
+        "alternatives": [
+          "Manual help",
+          "Validation message"
+        ],
+        "assumption": "Specific feedback helps recovery",
+        "baseline": "Synthetic error case",
+        "success_criteria": "Pass boundary and recovery cases",
+        "stop_criteria": "Two failed attempts",
+        "evidence_plan": [
+          "evidence-1"
+        ]
+      }
+    },
+    {
+      "id": "evidence-1",
+      "type": "evidence",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "kind": "observation",
+        "summary": "Synthetic fixture only",
+        "access_owner": "Example owner",
+        "retention": "Delete with fixture",
+        "max_age_seconds": 86400
+      }
+    },
+    {
+      "id": "decision-1",
+      "type": "decision",
+      "version": 1,
+      "owner": "Example owner",
+      "status": "proposed",
+      "created_at": "2026-11-14T12:00:00Z",
+      "updated_at": "2026-11-14T12:00:00Z",
+      "source": {
+        "ref": "synthetic fixture",
+        "version": "1"
+      },
+      "links": [],
+      "dependencies": {
+        "strategy": "1"
+      },
+      "data": {
+        "question": "Continue to real pilot?",
+        "evidence": [
+          "evidence-1"
+        ],
+        "rationale": "Await owner judgment"
+      }
+    }
+  ]
+}
