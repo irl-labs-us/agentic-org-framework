@@ -7,6 +7,7 @@ writers, broader organizational roles, or a more detailed production gate.
 ## Outcome and non-goals
 
 - **Required outcome:**
+- **Priority rationale:** Why now; method or judgment; evidence and uncertainty; alternatives deferred; revisit condition. Two sentences may suffice; see `FRAMEWORK.md` §II.8. No scored table required.
 - **Non-goals:**
 
 ## Human authority

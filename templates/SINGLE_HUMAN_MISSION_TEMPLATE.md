@@ -6,6 +6,7 @@ Routine fixes may use the same fields directly in the pull request.
 ## Outcome
 
 - **Decision or customer outcome:**
+- **Priority rationale:** Why now; method or judgment; evidence and uncertainty; alternatives deferred; revisit condition. Two sentences may suffice; see `FRAMEWORK.md` §II.8.
 - **Accountable owner:** {CEO}
 - **Operator directing the work:**
 - **Writer:**

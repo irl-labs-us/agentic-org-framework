@@ -167,6 +167,7 @@ A technically attractive capability does not enter the sequence just because it 
 
 - The customer or company decision it unlocks — architecture quality or "future scalability" alone is not a decision.
 - The smallest deliverable and its explicit non-goals.
+- A priority rationale under §II.8: why now, evidence and uncertainty, alternatives deferred, and when to revisit.
 - Maximum dollars/tokens, elapsed time, and agent count.
 - A current baseline and the evidence expected.
 - At most two remediation attempts per blocker, with mandatory escalation after the second.
@@ -183,6 +184,38 @@ Run this weekly while budget is constrained (any prototype or beta phase should 
 - **Google SRE error budgets** — the circuit-breaker ladder above is an error budget applied to spend instead of reliability: a fixed, pre-agreed allowance that automatically throttles further risk-taking once consumed, removing the need for a real-time human judgment call under pressure.
 - **Lean Startup (Ries) build-measure-learn** — the required-sequencing rule in II.4 is this loop enforced as policy: no expansion without observed learning from the smaller thing first.
 - **Principal-agent theory** — an agent that is evaluated only on output quality has every incentive to keep polishing on the principal's dime; tying evaluation (Part IV) to allocation adherence, not just output quality, aligns the agent's incentive with the principal's actual scarcity.
+
+### II.8 Choosing and scoping priorities
+
+Choose a method for the decision at hand. A short written rationale is enough
+for small decisions; larger comparisons may link supporting research or a
+scored table. No method is mandatory for every mission.
+
+| Decision | Useful method | Evidence expected |
+|---|---|---|
+| Which needs matter to users? | **Kano**: distinguish basic expectations, performance improvements, and potential delights | User research with the audience, findings, and uncertainty recorded |
+| Which eligible opportunity should we pursue next? | **RICE**: reach × impact × confidence ÷ effort | Comparable estimates, a shared time horizon and impact scale, consistent effort units, sources, and assumptions |
+| What fits within this release or funded phase? | **MoSCoW**: Must, Should, Could, Won't this time | A bounded outcome, available capacity, and what fails if each Must is omitted |
+
+Combine methods when useful: investigate needs with Kano, compare opportunities
+with RICE, and scope the selected mission with MoSCoW. A deadline does not
+remove the need for user evidence, and having numbers does not make estimates
+comparable. When evidence is too thin, authorize the smallest bounded research
+or manual trial needed for the decision rather than manufacture a score.
+
+Record one **priority rationale** in each mission: why this work now; the method
+or judgment used; supporting evidence and uncertainty; alternatives deferred;
+and the condition for revisiting the decision. Two sentences may suffice for
+lightweight work. Review it during §II.6's portfolio review when deciding
+whether to continue, narrow, defer, or stop.
+
+Safety, authority, privacy, and release-blocking obligations remain gates; a
+priority score cannot trade them away or bypass §II.4's sequencing. Label
+estimates and hypotheses explicitly; agents must not invent user research or
+present guessed numbers as observations. A Must is necessary for the stated
+outcome within this scope, with its omission consequence recorded. Prioritization
+recommends allocation; existing human decision rights and budget authorization
+still apply.
 
 ---
 
@@ -532,6 +565,13 @@ explicit transfer is recorded. Existing decision rights in §III.7 still apply:
 phase leadership cannot waive an Assurance block, grant merge authority, change
 strategy, or expand budget or human authority.
 
+**Use prioritization where it helps (§II.8).** Discover investigates needs,
+using Kano when useful. Define compares opportunities and sets scope with
+RICE and/or MoSCoW where the evidence supports them. Iterate revisits the
+priority rationale using observed outcomes. These are decision aids within
+the existing roles and gates; no additional stage or scoring exercise is
+required.
+
 **Record four fields in the mission packet:** lifecycle stage, named phase
 lead, exit evidence, and next owner. Exit evidence names the artifacts or
 observations and acceptance criteria needed for the next decision. At a
@@ -753,6 +793,8 @@ Available allocation before review / Committed unspent / Uncommitted after revie
 ## Portfolio table
 | Mission | Funded phase | Decision unlocked | Approved cap | Actual/estimated spend | % used | Corrective attempts | User-reachable evidence | Blocker | Disposition + next cap |
 
+Priority rationale (per mission): Why now / method or judgment / evidence and uncertainty / alternatives deferred / revisit condition. Link the mission's rationale; record any change and its evidence here.
+
 ## Circuit-breaker decisions (missions at ≥50% / ≥75% / ≥90%)
 ## Debugging and rescue review
 | Blocker | Attempt 1 | Attempt 2 | Escalation packet | Rescue owner/model + contribution | Reauthorization decision |
@@ -801,6 +843,7 @@ Assignment owner / accountable destination owner / Strategy Lead coordinator
 ## Mission
 Assignment / required outcome / strategy connection / customer promise
 Scope / non-goals / start condition / end condition / capacity rationale
+Priority rationale: Why now / method or judgment / evidence and uncertainty / alternatives deferred / revisit condition
 
 ## Product lifecycle and handoff
 Lifecycle stage (Discover / Define / Design / Build / Launch / Iterate)
