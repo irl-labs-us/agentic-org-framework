@@ -28,6 +28,13 @@ recorded schema label alone will fail; updating the label is a review decision,
 not a mechanical manifest-sync operation. Framework policy paths are always high
 risk, even when custom path lists omit them.
 
+The default `high_risk_paths` no longer include `backend/` or `supabase/` paths
+carried over from the first pilot. A `lightweight` configuration that omitted
+`high_risk_paths` and relied on those entries must list them explicitly; doing so
+changes its policy revision, so reissue review evidence. The always-high-risk
+policy paths now also cover the readiness, worktree, release and manifest-sync
+scripts and the Git covenant and registry; this does not change policy revisions.
+
 Opt-in workflows live under `templates/github-workflows/`. Scheduling requires an
 owner-selected cadence and explicit workflow/scheduler activation. Preserve review
 state across portable invocations. GitHub cache is best effort; eviction can cause

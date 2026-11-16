@@ -19,11 +19,7 @@
     "ledger_url": null,
     "high_risk_paths": [
       ".github/",
-      "supabase/migrations/",
       "AGENTS.md",
-      "backend/server.py",
-      "backend/db.py",
-      "backend/db_postgres.py",
       "docs/coordination/ACTIVE_TEAM.md",
       "docs/coordination/AGENT_EVALUATION_COVENANT.md",
       "docs/coordination/AGENT_OPERATING_CHARTER.md",
