@@ -19,7 +19,7 @@ State the chosen approach, alternatives deferred, non-goals, and human-retained 
 List objectives in priority order, not as equals. Give each a stable ID, baseline,
 target, evidence source, owner, and review date.
 
-Ordering rationale: the method or judgment behind the order (`FRAMEWORK.md` §II.8:
+Priority rationale for the order: the method or judgment used (`FRAMEWORK.md` §II.8:
 Kano for user needs, RICE to compare opportunities, MoSCoW to scope a phase, or a
 short written judgment), the evidence and its uncertainty, alternatives deferred, and
 the condition for revisiting the order. Label estimates as estimates.
