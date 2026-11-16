@@ -256,7 +256,9 @@ def test_single_human_principal_still_cannot_review_high_risk_work(tmp_path):
         "scripts/check_pr_readiness.py",
         "scripts/create_feature_worktree.py",
         "scripts/create_release_pr.py",
+        "scripts/sync_pr_manifest.py",
         "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+        "docs/coordination/GIT_WORK_REGISTRY.md",
         "docs/governance/AGENT_GOVERNANCE.md",
         "docs/operations/review-config.json",
     ],
@@ -280,3 +282,16 @@ def test_default_high_risk_paths_are_generic():
     for paths in (DEFAULT_HIGH_RISK_PATHS, example["git_governance"]["high_risk_paths"]):
         assert not [p for p in paths if p.startswith(("backend/", "supabase/"))]
     assert not governance.is_high_risk("backend/server.py")
+
+
+def test_lightweight_config_without_paths_gets_new_revision_from_new_defaults(tmp_path):
+    from framework_config import DEFAULT_HIGH_RISK_PATHS, parse_framework_config, policy_revision
+    raw = json.loads((SCRIPT_DIR.parent / ".agentic-org.example.json").read_text())
+    raw["profile"] = "lightweight"
+    raw["git_governance"].pop("high_risk_paths")
+    source = tmp_path / "config.json"
+    omitted = policy_revision(parse_framework_config(raw, source_path=source))
+    raw["git_governance"]["high_risk_paths"] = list(DEFAULT_HIGH_RISK_PATHS)
+    assert policy_revision(parse_framework_config(raw, source_path=source)) == omitted
+    raw["git_governance"]["high_risk_paths"] += ["supabase/migrations/", "backend/server.py"]
+    assert policy_revision(parse_framework_config(raw, source_path=source)) != omitted

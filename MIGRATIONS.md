@@ -29,9 +29,10 @@ not a mechanical manifest-sync operation. Framework policy paths are always high
 risk, even when custom path lists omit them.
 
 The default `high_risk_paths` no longer include `backend/` or `supabase/` paths
-carried over from the first pilot. A `lightweight` configuration that omitted
-`high_risk_paths` and relied on those entries must list them explicitly; doing so
-changes its policy revision, so reissue review evidence. The always-high-risk
+carried over from the first pilot. Every `lightweight` configuration that omits
+`high_risk_paths` resolves to the new defaults and so gets a new policy revision on
+upgrade, even with no other change; reissue review evidence. Add the old entries
+explicitly if they still apply. The always-high-risk
 policy paths now also cover the readiness, worktree, release and manifest-sync
 scripts and the Git covenant and registry; this does not change policy revisions.
 
