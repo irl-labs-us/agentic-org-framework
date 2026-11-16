@@ -26,23 +26,6 @@ from framework_config import (
     load_framework_config,
 )
 
-HIGH_RISK_PREFIXES = (
-    ".github/",
-    "supabase/migrations/",
-)
-HIGH_RISK_EXACT = {
-    "AGENTS.md",
-    "backend/server.py",
-    "backend/db.py",
-    "backend/db_postgres.py",
-    "docs/coordination/ACTIVE_TEAM.md",
-    "docs/coordination/AGENT_EVALUATION_COVENANT.md",
-    "docs/coordination/AGENT_OPERATING_CHARTER.md",
-    "docs/coordination/CORE_ORG.md",
-    "docs/coordination/DEBUG_PROTOCOL.md",
-    "docs/coordination/GIT_OPERATIONS_COVENANT.md",
-    "docs/coordination/GIT_WORK_REGISTRY.md",
-}
 FORBIDDEN_PREFIXES = (
     ".idea/",
     "node_modules/",

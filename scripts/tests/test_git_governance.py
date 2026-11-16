@@ -247,7 +247,20 @@ def test_single_human_principal_still_cannot_review_high_risk_work(tmp_path):
         governance.validate(args)
 
 
-@pytest.mark.parametrize("path", [".agentic-org.json", "scripts/check_git_governance.py", "docs/governance/AGENT_GOVERNANCE.md", "docs/operations/review-config.json"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".agentic-org.json",
+        "CLAUDE.md",
+        "scripts/check_git_governance.py",
+        "scripts/check_pr_readiness.py",
+        "scripts/create_feature_worktree.py",
+        "scripts/create_release_pr.py",
+        "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+        "docs/governance/AGENT_GOVERNANCE.md",
+        "docs/operations/review-config.json",
+    ],
+)
 def test_policy_paths_cannot_be_downgraded_by_configuration(path):
     assert governance.is_high_risk(path, ("unrelated/",))
 
@@ -259,3 +272,11 @@ def test_policy_revision_changes_when_policy_changes(tmp_path):
     raw["git_governance"]["high_risk_paths"].append("payments/")
     second = policy_revision(parse_framework_config(raw, source_path=tmp_path / "config.json"))
     assert first != second
+
+
+def test_default_high_risk_paths_are_generic():
+    from framework_config import DEFAULT_HIGH_RISK_PATHS
+    example = json.loads((SCRIPT_DIR.parent / ".agentic-org.example.json").read_text())
+    for paths in (DEFAULT_HIGH_RISK_PATHS, example["git_governance"]["high_risk_paths"]):
+        assert not [p for p in paths if p.startswith(("backend/", "supabase/"))]
+    assert not governance.is_high_risk("backend/server.py")

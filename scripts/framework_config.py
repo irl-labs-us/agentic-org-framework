@@ -15,13 +15,11 @@ PROFILES = {"lightweight", "solo", "multi"}
 OPERATOR_MODES = {"single-human", "small-team", "multi-human"}
 AGENT_SESSIONS = {"one", "parallel"}
 DEFAULT_LEDGER_URL = "https://github.com/<org>/<repo>/issues/<lease-ledger-issue-number>"
+# Generic defaults only. Project-specific shared code, schemas, migrations and
+# persistence belong in the adopter's git_governance.high_risk_paths.
 DEFAULT_HIGH_RISK_PATHS = (
     ".github/",
-    "supabase/migrations/",
     "AGENTS.md",
-    "backend/server.py",
-    "backend/db.py",
-    "backend/db_postgres.py",
     "docs/coordination/ACTIVE_TEAM.md",
     "docs/coordination/AGENT_EVALUATION_COVENANT.md",
     "docs/coordination/AGENT_OPERATING_CHARTER.md",
@@ -33,10 +31,13 @@ DEFAULT_HIGH_RISK_PATHS = (
 MANDATORY_HIGH_RISK_PATHS = (
     ".agentic-org.json", "FRAMEWORK.md", "AGENTS.md", "CLAUDE.md",
     "scripts/framework_config.py", "scripts/check_git_governance.py",
+    "scripts/check_pr_readiness.py", "scripts/create_feature_worktree.py",
+    "scripts/create_release_pr.py", "scripts/sync_pr_manifest.py",
     "scripts/framework_doctor.py", "scripts/scaffold_framework.py",
     "scripts/operating_records.py", "scripts/operating_review.py",
     "scripts/run_evaluations.py", "docs/governance/", "docs/strategy/",
-    "docs/operations/", ".github/",
+    "docs/operations/", "docs/coordination/GIT_OPERATIONS_COVENANT.md",
+    "docs/coordination/GIT_WORK_REGISTRY.md", ".github/",
 )
 
 DEFAULT_FORBIDDEN_PATHS = (".env", ".idea/", "node_modules/")
