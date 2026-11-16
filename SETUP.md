@@ -58,7 +58,7 @@ Walk through the **Strategy Constitution template** (`FRAMEWORK.md` §I.3) field
 | Diagnosis | What's actually broken or missing for the target user today, in concrete terms? (Not "there's no solution" — what specifically hurts?) |
 | Guiding policy | Given that diagnosis, what's the one sentence that should decide close calls? (e.g. "when in doubt, favor X over Y") |
 | Human-in-command boundary | What decisions does a human always keep — never delegated to an agent, no matter how capable? Name them explicitly. |
-| Near-term strategic objectives | 2–4 objectives, **ordered** — not a flat list of equally-important things. What's genuinely first? |
+| Near-term strategic objectives | 2–4 objectives, **ordered** — not a flat list of equally-important things. What's genuinely first, and why? Note the method or judgment (§II.8), evidence and uncertainty, alternatives deferred, and when to revisit. Thin evidence: say so, don't score. |
 | Product model / core mechanism | In plain language, how does the product actually work end to end? |
 | Current non-priorities | What are you deliberately *not* doing right now, even though it's tempting or someone will ask for it? |
 | Evidence required for the next strategic decision | What would have to be true/observed before the next big strategic call gets made? |
@@ -226,6 +226,8 @@ Work through one layer at a time; do not ask all questions at once.
 ## Section 9 — First mission packet (optional, recommended)
 
 Offer to draft the first mission packet for whatever the user wants to build. Lightweight uses `docs/coordination/LIGHTWEIGHT_MISSION_TEMPLATE.md`; solo and multi use `docs/coordination/MISSION_PACKET_TEMPLATE.md` and the condensed version in `FRAMEWORK.md` Appendix D. Fill it in live, including applicable Git scope and lease fields.
+
+Fill in the mission's **priority rationale** (§II.8): why this now, the method or judgment used, the evidence and its uncertainty, alternatives deferred, and the condition for revisiting it. Two sentences may suffice. Ask for the user's evidence rather than supplying it: never invent user research or present guessed numbers as observations. When the evidence is too thin for the decision, record that and propose the smallest research or manual trial that would settle it.
 
 ---
 

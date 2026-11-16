@@ -16,7 +16,13 @@ State the chosen approach, alternatives deferred, non-goals, and human-retained 
 
 ## Objectives and evidence
 
-Give each objective a stable ID, baseline, target, evidence source, owner, and review date.
+List objectives in priority order, not as equals. Give each a stable ID, baseline,
+target, evidence source, owner, and review date.
+
+Priority rationale for the order: the method or judgment used (`FRAMEWORK.md` §II.8:
+Kano for user needs, RICE to compare opportunities, MoSCoW to scope a phase, or a
+short written judgment), the evidence and its uncertainty, alternatives deferred, and
+the condition for revisiting the order. Label estimates as estimates.
 
 ## Allocation and stop criteria
 

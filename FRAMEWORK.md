@@ -105,6 +105,8 @@ What agents may decide/automate vs. what must return to a human (end user and/or
 2. ...
 3. ...
 
+Priority rationale for the order (§II.8): the method or judgment used, evidence and uncertainty, alternatives deferred, and the condition for revisiting it.
+
 ## Product model / core mechanism
 Whatever the durable "how it works" model is (a data model, a workflow, a matching algorithm) — including what it must NOT collapse into (e.g., "not an opaque single score").
 
