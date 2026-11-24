@@ -8,6 +8,7 @@ See `IMPLEMENTATION_REPORT.md` for current verification and pilot limits, and `M
 
 ## Choose an entry path
 
+- **Client proposal.** Start with the [proposal assignment](FRAMEWORK.md#proposal-assignments). A standalone proposal can use this path directly.
 - **New application:** use `SETUP.md` for adoption, then `OPERATIONS.md` to connect strategy, missions, evidence, evaluations, and reviews.
 - **Existing application:** start with `ASSESS.md`; repository installation is optional. Convert accepted findings into proposed bounded missions.
 - **Organization assessment:** use `ASSESS.md` and `templates/assessment/ORGANIZATION.md` to inspect a selected portfolio and consequential workflows before proposing changes.

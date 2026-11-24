@@ -4,6 +4,8 @@ Use this packet for bounded work with one accountable operator. Move to the
 full `templates/MISSION_PACKET_TEMPLATE.md` when the work needs coordinated
 writers, broader organizational roles, or a more detailed production gate.
 
+**For a client proposal:** What has the recipient already decided, and what decision should this document enable next? Use their original request and the “Proposal assignments” guidance in `FRAMEWORK.md` §III.5 to frame the offer and choose its length.
+
 ## Outcome and non-goals
 
 - **Strategy reference and version:**

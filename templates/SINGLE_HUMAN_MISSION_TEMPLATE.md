@@ -3,6 +3,8 @@
 Use this packet for bounded work that benefits from durable scope and evidence.
 Routine fixes may use the same fields directly in the pull request.
 
+**For a client proposal:** What has the recipient already decided, and what decision should this document enable next? Use their original request and the “Proposal assignments” guidance in `FRAMEWORK.md` §III.5 to frame the offer and choose its length.
+
 ## Outcome
 
 - **Decision or customer outcome:**

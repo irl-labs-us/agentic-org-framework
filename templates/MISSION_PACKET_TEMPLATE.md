@@ -2,6 +2,8 @@
 
 Copy this template for every new build or user-facing agent assignment. Register the assignment in `ACTIVE_TEAM.md` before work begins.
 
+**For a client proposal:** What has the recipient already decided, and what decision should this document enable next? Use their original request and the “Proposal assignments” guidance in `FRAMEWORK.md` §III.5 to frame the offer and choose its length.
+
 ## Identity and ownership
 
 - **Agent's chosen team name:** To be chosen during handshake
