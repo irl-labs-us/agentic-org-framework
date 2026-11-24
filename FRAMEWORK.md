@@ -285,6 +285,14 @@ improving the product.
 
 **Cross-organization platform missions** — a capability that would serve both organizations (RoleWise's memory-architecture program is the cautionary example) stays a mission overlay unless the CEO explicitly approves a durable organizational change. It gets one execution lane, named acceptance owners, and independent review — it does not become a third organization or an executive layer just because its scope happens to cross teams. This is the specific guardrail against a genuinely useful-sounding platform capability quietly becoming a permanent, unaccountable department.
 
+#### Proposal assignments
+
+Start with the recipient's email or request, call notes, and any work already delivered. Read the available material before interviewing the author. **What has the recipient already decided, and what decision should this document enable next?** In a few sentences, identify the reader, the decision, what the author offers to own, and the reply or action the author wants. Attribute assumptions to their source. If the sources disagree or a missing answer changes the offer, ask the author a focused question. Otherwise proceed with the draft.
+
+Choose the format and stopping point around that decision. A buyer who has chosen to build and asked for a quick take may need only an email describing the first deliverable, how it will be judged, and the access needed to scope it. A buyer choosing who will deliver may need a short comparison of responsibilities, effort, and terms to settle together. Carry forward completed discovery and distinguish provisional estimates from agreed commitments.
+
+Keep one editable client draft. Answer the author's technical follow-ups in working notes unless they change the offer or the author asks to include them. Before handoff, read the draft from the recipient's perspective. Can they identify the decision and respond? Does each material promise have support? Cut background the recipient already knows. If the decision changed during drafting, reconcile the brief and flag any approved strategy that needs the owner's revision. The author decides what to share.
+
 ### III.6 Communication bus
 
 Shared infrastructure, not a third organization or a decision-maker. Four parts:
@@ -843,6 +851,7 @@ Team name / role / organization / lane or stage / classification (standing / mis
 Assignment owner / accountable destination owner / Strategy Lead coordinator
 
 ## Mission
+For a client proposal: recipient / decision already made / next decision requested (see III.5, Proposal assignments)
 Assignment / required outcome / strategy connection / customer promise
 Scope / non-goals / start condition / end condition / capacity rationale
 Priority rationale: Why now / method or judgment / evidence and uncertainty / alternatives deferred / revisit condition

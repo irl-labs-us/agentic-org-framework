@@ -28,6 +28,7 @@ Either way, this is a **conversation**, not a form. Expect it to take 20–40 mi
 
 First select the intended entry path, independently of agent profile, human integration mode, risk, and lifecycle:
 
+- **Client proposal.** Start with the [proposal assignment](FRAMEWORK.md#proposal-assignments). A standalone proposal can use this path directly.
 - **New application:** continue this interview, establishing strategy before funding or implementation.
 - **Existing application assessment:** use [ASSESS.md](ASSESS.md) to establish a baseline and bounded next decision. Existing strategy and owner documents remain authoritative. Return here only when adoption or an accepted implementation mission calls for installation.
 - **Organization assessment:** use [ASSESS.md](ASSESS.md) and its organization scope template. Agree a selected portfolio and two or three workflows, decision owner and evidence access. No Git repository or framework installation in the organization is required.
