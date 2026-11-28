@@ -61,7 +61,7 @@ At RoleWise, parallel branches changed the same UI component and its tests while
 
 **What changed our judgment.** All six runs passed both component tests and the separate attribute checks. All three agreements produced identical final files within each case. The checkpoint moved conflict resolution earlier but still required reconciling two files. Sequencing avoided that reconciliation when same-line overlap was known in advance. The scripted runs measured conflicts and work order only. Human waiting time and minutes of rework remain open questions.
 
-**Next real-world check.** On the next assignment pair with known same-line overlap, the repository owner can sequence just the shared edit and leave independent work in parallel. Record how long the second writer waits and how long integration takes. Compare those costs with an early checkpoint on a comparable pair before adopting a standing rule.
+**Next real-world check.** On the next assignment pair with known same-line overlap, the repository owner can sequence just the shared edit and leave independent work in parallel. Use an early checkpoint on a comparable pair. For each pair, record elapsed minutes when the second writer is blocked and has no independent work to do. Separately, total each participant’s hands-on minutes spent preparing the checkpoint, integrating edits, resolving conflicts, and retesting. Count each minute of a participant’s effort once, even if the checkpoint and final merge are both clean. Compare the two pairs before adopting a standing rule.
 
 ## Product lifecycle and handoff
 
