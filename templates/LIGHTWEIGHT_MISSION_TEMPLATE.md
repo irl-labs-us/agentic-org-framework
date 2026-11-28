@@ -14,6 +14,10 @@ writers, broader organizational roles, or a more detailed production gate.
 - **Priority rationale:** Why now; method or judgment; evidence and uncertainty; alternatives deferred; revisit condition. Two sentences may suffice; see `FRAMEWORK.md` §II.8. No scored table required.
 - **Non-goals:**
 
+## Decision rehearsal (optional)
+
+When a simulation could change the decision, name the owner, compare current practice with an alternative on the same case, and choose a measure before the run. Record the result, its assumptions, and the next live check. See `FRAMEWORK.md` §II.9.
+
 ## Human authority
 
 - **Accountable human:**
