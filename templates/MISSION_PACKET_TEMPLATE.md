@@ -30,6 +30,39 @@ Copy this template for every new build or user-facing agent assignment. Register
 - **End condition:**
 - **Work displaced or capacity rationale:** What current work pauses, or why this fits existing capacity
 
+## Decision rehearsal (optional)
+
+Use this section when trying plausible alternatives on a small case could change the owner's decision. Omit it when a direct check would answer the question more cheaply.
+
+| Field | What to record |
+|---|---|
+| Decision and owner | What choice is open, and who can make it? |
+| Alternatives | Include current practice so the owner can judge the value of a change. |
+| Cases and assumptions | Describe the situations each alternative will face, what stays constant, and what the rehearsal assumes. |
+| Comparison criteria | Before the run, choose the observations that would favor or rule out each alternative. |
+| What changed our judgment | After the run, record the observations, how they affected the choice, and what remains uncertain. |
+| Next real-world check | Name the owner, the smallest live check, and the evidence that would prompt reconsideration. |
+
+### Worked example — RoleWise branch collision
+
+At RoleWise, parallel branches changed the same UI component and its tests while both assignments were visible in the team registry. Conflicts surfaced at integration. A disposable Git repository recreated that pattern with two button components.
+
+**Decision and owner.** The repository owner is choosing when writers should coordinate. The rehearsal compared three working agreements from the same starting commit.
+
+**Cases and assumptions.** The first writer added an accessible name to a button. The second added a tooltip, then revised its wording in a second commit. Each writer also updated the component's test. In the overlap case they edited the same lines. In the independent case they edited different components. Both writers' intended paths were recorded at assignment time.
+
+**Comparison criteria.** Record when Git first reports a conflict, how many files require resolution, and which steps depend on the first writer finishing. Run the component tests and independently check the rendered buttons for both intended attributes.
+
+| Working agreement | Overlapping edits | Independent edits |
+|---|---|---|
+| A. Register assignments and integrate at completion | Final merge flagged two files, the component and its test, after the tooltip wording was final. Both required resolution. | Clean final merge. |
+| B. Integrate the first writer's change at a checkpoint | The checkpoint flagged the same two files before the tooltip wording was final. After resolution, the wording revision and final merge went through cleanly. | The checkpoint merged cleanly. It added one integration step and surfaced no conflict. |
+| C. Sequence known shared edits and run independent edits in parallel | The second writer started from the first writer's merged change. Both edits survived with zero conflicts. Starting the shared edit depended on the first writer finishing. | Both branches started from the baseline and merged cleanly. |
+
+**What changed our judgment.** All six runs passed both component tests and the separate attribute checks. All three agreements produced identical final files within each case. The checkpoint moved conflict resolution earlier but still required reconciling two files. Sequencing avoided that reconciliation when same-line overlap was known in advance. The scripted runs measured conflicts and work order only. Human waiting time and minutes of rework remain open questions.
+
+**Next real-world check.** On the next assignment pair with known same-line overlap, the repository owner can sequence just the shared edit and leave independent work in parallel. Use an early checkpoint on a comparable pair. For each pair, record elapsed minutes when the second writer is blocked and has no independent work to do. Separately, total each participant’s hands-on minutes spent preparing the checkpoint, integrating edits, resolving conflicts, and retesting. Count each minute of a participant’s effort once, even if the checkpoint and final merge are both clean. Compare the two pairs before adopting a standing rule.
+
 ## Product lifecycle and handoff
 
 - **Lifecycle stage:** Discover / Define / Design / Build / Launch / Iterate

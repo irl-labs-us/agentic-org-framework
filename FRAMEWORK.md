@@ -219,6 +219,17 @@ outcome within this scope, with its omission consequence recorded. Prioritizatio
 recommends allocation; existing human decision rights and budget authorization
 still apply.
 
+### II.9 Decision rehearsal (optional)
+
+Use a simulation when a team faces a concrete choice and a short rehearsal could change the owner's decision. One person can walk through a past case on paper or replay it in a disposable environment. Use the mission's existing time and spending limits.
+
+1. Name the decision and its owner. Compare current practice with at least one feasible alternative.
+2. Choose the cases and comparison criteria before running them. Give each alternative the same inputs. Include a case where the proposed change could add cost.
+3. Record what happened in the rehearsal, which assumptions affected it, and whether the owner changed their judgment. If a different assumption could reverse the choice, rerun that case within the budget.
+4. Identify the smallest live check and who will review it. Keep simulated observations identifiable when recording later outcomes.
+
+For example, the RoleWise branch rehearsal compared overlapping edits with independent edits. An early integration check surfaced the same two conflicting files sooner. Sequencing the shared edit avoided both conflicts. The open question for a live pair is how much time the second writer spends waiting and how much rework the handoff saves.
+
 ---
 
 ## Part III — Organizational Structure
@@ -855,6 +866,9 @@ For a client proposal: recipient / decision already made / next decision request
 Assignment / required outcome / strategy connection / customer promise
 Scope / non-goals / start condition / end condition / capacity rationale
 Priority rationale: Why now / method or judgment / evidence and uncertainty / alternatives deferred / revisit condition
+
+## Decision rehearsal (optional)
+Decision and owner / alternatives / cases and assumptions / criteria / observed result / next live check (§II.9)
 
 ## Product lifecycle and handoff
 Lifecycle stage (Discover / Define / Design / Build / Launch / Iterate)

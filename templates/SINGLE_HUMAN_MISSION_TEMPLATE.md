@@ -14,6 +14,10 @@ Routine fixes may use the same fields directly in the pull request.
 - **Writer:**
 - **Independent reviewer, when high risk:**
 
+## Decision rehearsal (optional)
+
+When a simulation could change the decision, name the owner, compare current practice with an alternative on the same case, and choose a measure before the run. Record the result, its assumptions, and the next live check. See `FRAMEWORK.md` §II.9.
+
 ## Strategy, lifecycle, and funding
 
 - **Strategy reference and version:** `docs/strategy/STRATEGY.md`; approved version

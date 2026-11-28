@@ -145,6 +145,16 @@ def test_single_human_mode_omits_coordination_contract(tmp_path: Path, profile: 
     assert "check_pr_readiness.py" in pull_request_template
 
 
+@pytest.mark.parametrize("profile", ["lightweight", "solo", "multi"])
+@pytest.mark.parametrize("operator_mode", ["single-human", "multi-human"])
+def test_installed_mission_offers_optional_decision_rehearsal(tmp_path: Path, profile: str, operator_mode: str) -> None:
+    write_config(tmp_path, profile=profile, operator_mode=operator_mode)
+    files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
+    name = "LIGHTWEIGHT_MISSION_TEMPLATE.md" if profile == "lightweight" else "MISSION_PACKET_TEMPLATE.md"
+    assert b"## Decision rehearsal (optional)" in files[f"docs/coordination/{name}"]
+    assert b"### II.9 Decision rehearsal (optional)" in files["FRAMEWORK.md"]
+
+
 def test_multi_profile_retains_lease_contract(tmp_path: Path) -> None:
     write_config(tmp_path, profile="multi", operator_mode="multi-human")
     files = desired_files(SOURCE, load_framework_config(repo=tmp_path, required=True))
